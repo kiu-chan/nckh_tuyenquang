@@ -4,9 +4,15 @@ import LoginPage from "../pages/admin/account/LoginPage";
 import RegisterPage from "../pages/admin/account/RegisterPage";
 import AdminDashboard from "../pages/admin/AdminDashboard/index.jsx";
 import TeacherDashboard from "../pages/teacher/Dashboard/index.jsx";
+import StudentDashboard from "../pages/student/Dashboard/index.jsx";
 import DefaultLayout from "../components/Layout/DefaultLayout";
 import AdminLayout from "../components/adminLayout/AdminLayout";
 import TeacherLayout from "../components/teacherLayout/TeacherLayout";
+import TeacherNotebook from "../pages/teacher/Notebook/index.jsx";
+import TeacherDocuments from "../pages/teacher/Documents/index.jsx";
+import TeacherExams from "../pages/teacher/Exams/index.jsx";
+import TeacherGames from "../pages/teacher/Games/index.jsx";
+import StudentLayout from "../components/studentLayout/StudentLayout";
 
 // Routes công khai
 const publicRoutes = [
@@ -32,8 +38,9 @@ const publicRoutes = [
   },
 ];
 
-// Routes cho Admin
+// Routes cho các roles
 const privateRoutes = [
+  // Admin routes
   {
     path: "/admin",
     component: AdminDashboard,
@@ -46,6 +53,37 @@ const privateRoutes = [
     component: TeacherDashboard,
     layout: TeacherLayout,
     allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/notebook",
+    component: TeacherNotebook,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/documents",
+    component: TeacherDocuments,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/exams",
+    component: TeacherExams,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/games",
+    component: TeacherGames,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  // Student routes
+  {
+    path: "/student/dashboard",
+    component: StudentDashboard,
+    layout: StudentLayout,
+    allowedRoles: ['student']
   },
 ];
 

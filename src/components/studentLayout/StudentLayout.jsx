@@ -6,25 +6,26 @@ import {
   FiBook, 
   FiFileText, 
   FiCheckSquare,
-  FiUsers,
+  FiAward,
   FiBarChart2,
   FiSettings,
   FiLogOut,
   FiBell,
   FiSearch,
   FiMenu,
-  FiX
+  FiX,
+  FiClock
 } from 'react-icons/fi';
 import { 
   IoBookOutline,
   IoDocumentTextOutline,
   IoGameControllerOutline,
-  IoCreateOutline,
-  IoClipboardOutline,
-  IoSparklesOutline
+  IoTrophyOutline,
+  IoSchoolOutline,
+  IoCalendarOutline
 } from 'react-icons/io5';
 
-const TeacherLayout = ({ children }) => {
+const StudentLayout = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
@@ -32,14 +33,15 @@ const TeacherLayout = ({ children }) => {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const menuItems = [
-    { path: '/teacher/dashboard', icon: FiHome, label: 'Trang chủ' },
-    { path: '/teacher/notebook', icon: IoBookOutline, label: 'Notebook' },
-    { path: '/teacher/documents', icon: IoDocumentTextOutline, label: 'Tài liệu' },
-    { path: '/teacher/exams', icon: IoCreateOutline, label: 'Đề thi' },
-    { path: '/teacher/games', icon: IoGameControllerOutline, label: 'Trò chơi' },
-    { path: '/teacher/students', icon: FiUsers, label: 'Học sinh' },
-    { path: '/teacher/statistics', icon: FiBarChart2, label: 'Thống kê' },
-    { path: '/teacher/settings', icon: FiSettings, label: 'Cài đặt' }
+    { path: '/student/dashboard', icon: FiHome, label: 'Trang chủ' },
+    { path: '/student/courses', icon: IoSchoolOutline, label: 'Khóa học' },
+    { path: '/student/assignments', icon: FiCheckSquare, label: 'Bài tập' },
+    { path: '/student/exams', icon: IoDocumentTextOutline, label: 'Bài kiểm tra' },
+    { path: '/student/games', icon: IoGameControllerOutline, label: 'Trò chơi' },
+    { path: '/student/schedule', icon: IoCalendarOutline, label: 'Lịch học' },
+    { path: '/student/achievements', icon: IoTrophyOutline, label: 'Thành tích' },
+    { path: '/student/progress', icon: FiBarChart2, label: 'Tiến độ' },
+    { path: '/student/settings', icon: FiSettings, label: 'Cài đặt' }
   ];
 
   const handleLogout = async () => {
@@ -56,9 +58,9 @@ const TeacherLayout = ({ children }) => {
   };
 
   const notifications = [
-    { id: 1, title: 'Học sinh nộp bài', message: 'Nguyễn Văn A đã nộp bài tập', time: '5 phút trước', unread: true },
-    { id: 2, title: 'Nhắc nhở', message: 'Hạn nộp đề thi học kỳ I', time: '1 giờ trước', unread: true },
-    { id: 3, title: 'Cập nhật', message: 'Tính năng mới đã có sẵn', time: '2 giờ trước', unread: false },
+    { id: 1, title: 'Bài tập mới', message: 'Thầy đã giao bài tập Toán học', time: '10 phút trước', unread: true },
+    { id: 2, title: 'Nhắc nhở', message: 'Hạn nộp bài tập Văn học', time: '1 giờ trước', unread: true },
+    { id: 3, title: 'Điểm số', message: 'Bạn đã được chấm điểm bài kiểm tra', time: '2 giờ trước', unread: false },
   ];
 
   return (
@@ -70,13 +72,13 @@ const TeacherLayout = ({ children }) => {
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <Link to="/teacher/dashboard" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center">
+            <Link to="/student/dashboard" className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-400 rounded-xl flex items-center justify-center">
                 <IoBookOutline className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h1 className="text-lg font-bold text-gray-800">NoteBookLM</h1>
-                <p className="text-xs text-emerald-600">Giáo viên</p>
+                <p className="text-xs text-blue-600">Học sinh</p>
               </div>
             </Link>
             <button
@@ -100,7 +102,7 @@ const TeacherLayout = ({ children }) => {
                       onClick={() => setIsSidebarOpen(false)}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                         isActive
-                          ? 'bg-emerald-50 text-emerald-600'
+                          ? 'bg-blue-50 text-blue-600'
                           : 'text-gray-600 hover:bg-gray-50'
                       }`}
                     >
@@ -116,12 +118,12 @@ const TeacherLayout = ({ children }) => {
           {/* User Info & Logout */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center gap-3 px-4 py-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
-                {currentUser?.name?.charAt(0) || 'G'}
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold">
+                {currentUser?.name?.charAt(0) || 'H'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-700 truncate">
-                  {currentUser?.name || 'Giáo viên'}
+                  {currentUser?.name || 'Học sinh'}
                 </p>
                 <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
               </div>
@@ -163,7 +165,7 @@ const TeacherLayout = ({ children }) => {
                 <FiSearch className="text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Tìm kiếm..."
+                  placeholder="Tìm kiếm khóa học, bài tập..."
                   className="flex-1 px-3 bg-transparent text-sm text-gray-700 placeholder-gray-400 focus:outline-none"
                 />
               </div>
@@ -191,12 +193,12 @@ const TeacherLayout = ({ children }) => {
                         <div
                           key={notif.id}
                           className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                            notif.unread ? 'bg-emerald-50' : ''
+                            notif.unread ? 'bg-blue-50' : ''
                           }`}
                         >
                           <div className="flex items-start gap-3">
                             {notif.unread && (
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2"></div>
+                              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
                             )}
                             <div className="flex-1">
                               <p className="text-sm font-medium text-gray-800">{notif.title}</p>
@@ -208,7 +210,7 @@ const TeacherLayout = ({ children }) => {
                       ))}
                     </div>
                     <div className="p-3 text-center border-t border-gray-200">
-                      <button className="text-sm text-emerald-600 hover:text-emerald-700 font-medium">
+                      <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                         Xem tất cả
                       </button>
                     </div>
@@ -217,8 +219,8 @@ const TeacherLayout = ({ children }) => {
               </div>
 
               {/* User Avatar */}
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
-                {currentUser?.name?.charAt(0) || 'G'}
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold cursor-pointer">
+                {currentUser?.name?.charAt(0) || 'H'}
               </div>
             </div>
           </div>
@@ -233,4 +235,4 @@ const TeacherLayout = ({ children }) => {
   );
 };
 
-export default TeacherLayout;
+export default StudentLayout;
