@@ -2,19 +2,25 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { IoBookOutline } from 'react-icons/io5';
-import { FiMail, FiLock, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
+import { IoBookOutline, IoSchoolOutline, IoPeopleOutline } from 'react-icons/io5';
+import { FiMail, FiLock, FiUser, FiArrowRight, FiCheckCircle } from 'react-icons/fi';
 
-const Login = () => {
+const Register = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
     username: '',
-    password: ''
+    password: '',
+    confirmPassword: '',
+    role: 'student' // default role
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleChange = (e) => {
     setFormData({
@@ -29,23 +35,36 @@ const Login = () => {
     setIsLoading(true);
     setError('');
 
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      setError('Mật khẩu xác nhận không khớp');
+      setIsLoading(false);
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      setIsLoading(false);
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setError('Vui lòng đồng ý với điều khoản sử dụng');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const result = await login(formData.username, formData.password);
+      const result = await register(formData);
       
       if (result.success) {
-        // Tự động redirect dựa trên role
-        switch (result.user.role) {
-          case 'admin':
-            navigate('/admin', { replace: true });
-            break;
-          case 'teacher':
-            navigate('/teacher/dashboard', { replace: true });
-            break;
-          case 'student':
-            navigate('/student/dashboard', { replace: true });
-            break;
-          default:
-            navigate('/', { replace: true });
+        // Redirect based on role
+        if (result.user.role === 'teacher') {
+          navigate('/teacher/dashboard', { replace: true });
+        } else if (result.user.role === 'student') {
+          navigate('/student/dashboard', { replace: true });
+        } else {
+          navigate('/admin', { replace: true });
         }
       }
     } catch (err) {
@@ -55,8 +74,13 @@ const Login = () => {
     }
   };
 
+  const roles = [
+    { value: 'teacher', label: 'Giáo viên', icon: IoSchoolOutline, description: 'Tạo bài giảng, đề thi, quản lý học sinh' },
+    { value: 'student', label: 'Học sinh', icon: IoPeopleOutline, description: 'Học tập, làm bài tập, xem tài liệu' }
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50 flex items-center justify-center p-4 py-12">
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
@@ -69,18 +93,94 @@ const Login = () => {
               <p className="text-xs text-gray-500 -mt-1">Học tập thông minh</p>
             </div>
           </Link>
-          <h2 className="text-2xl font-bold text-gray-800 mt-6">Đăng nhập</h2>
+          <h2 className="text-2xl font-bold text-gray-800 mt-6">Tạo tài khoản</h2>
           <p className="text-gray-600 mt-2">
-            Chưa có tài khoản?{' '}
-            <Link to="/register" className="text-emerald-600 hover:text-emerald-700 font-medium">
-              Đăng ký ngay
+            Đã có tài khoản?{' '}
+            <Link to="/login" className="text-emerald-600 hover:text-emerald-700 font-medium">
+              Đăng nhập ngay
             </Link>
           </p>
         </div>
 
-        {/* Login Form Card */}
+        {/* Register Form Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Bạn là
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                {roles.map((role) => {
+                  const Icon = role.icon;
+                  return (
+                    <button
+                      key={role.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, role: role.value })}
+                      className={`p-4 border-2 rounded-xl transition-all ${
+                        formData.role === role.value
+                          ? 'border-emerald-500 bg-emerald-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon className={`w-8 h-8 mx-auto mb-2 ${
+                        formData.role === role.value ? 'text-emerald-500' : 'text-gray-400'
+                      }`} />
+                      <p className={`font-medium text-sm ${
+                        formData.role === role.value ? 'text-emerald-700' : 'text-gray-700'
+                      }`}>
+                        {role.label}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{role.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Full Name Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Họ và tên
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <FiUser className="text-gray-400 w-5 h-5" />
+                </div>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-700"
+                  placeholder="Nhập họ và tên"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Email Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <FiMail className="text-gray-400 w-5 h-5" />
+                </div>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-700"
+                  placeholder="example@email.com"
+                  required
+                />
+              </div>
+            </div>
+
             {/* Username Input */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -88,7 +188,7 @@ const Login = () => {
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FiMail className="text-gray-400 w-5 h-5" />
+                  <FiUser className="text-gray-400 w-5 h-5" />
                 </div>
                 <input
                   type="text"
@@ -104,14 +204,9 @@ const Login = () => {
 
             {/* Password Input */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Mật khẩu
-                </label>
-                <Link to="/forgot-password" className="text-sm text-emerald-600 hover:text-emerald-700">
-                  Quên mật khẩu?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Mật khẩu
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <FiLock className="text-gray-400 w-5 h-5" />
@@ -122,7 +217,7 @@ const Login = () => {
                   value={formData.password}
                   onChange={handleChange}
                   className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-700"
-                  placeholder="Nhập mật khẩu"
+                  placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
                   required
                 />
                 <button
@@ -135,15 +230,52 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center">
+            {/* Confirm Password Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Xác nhận mật khẩu
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <FiLock className="text-gray-400 w-5 h-5" />
+                </div>
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-gray-700"
+                  placeholder="Nhập lại mật khẩu"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <FaEyeSlash className="w-5 h-5" /> : <FaEye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Terms Agreement */}
+            <div className="flex items-start">
               <input
-                id="remember"
+                id="terms"
                 type="checkbox"
-                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500 mt-1"
               />
-              <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
-                Ghi nhớ đăng nhập
+              <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
+                Tôi đồng ý với{' '}
+                <Link to="/terms" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                  Điều khoản sử dụng
+                </Link>
+                {' '}và{' '}
+                <Link to="/privacy" className="text-emerald-600 hover:text-emerald-700 font-medium">
+                  Chính sách bảo mật
+                </Link>
               </label>
             </div>
 
@@ -173,54 +305,12 @@ const Login = () => {
                 </>
               ) : (
                 <>
-                  <span>Đăng nhập</span>
+                  <span>Đăng ký</span>
                   <FiArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-            <p className="text-sm text-emerald-800 font-medium mb-3 flex items-center gap-2">
-              <FiCheckCircle className="w-4 h-4" />
-              Tài khoản demo - Tự động chuyển trang theo vai trò:
-            </p>
-            <div className="space-y-3">
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Admin</span>
-                  <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Quản trị</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>• Username: <span className="font-mono font-semibold">admin</span></p>
-                  <p>• Password: <span className="font-mono font-semibold">admin123</span></p>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Giáo viên</span>
-                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Teacher</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>• Username: <span className="font-mono font-semibold">teacher</span></p>
-                  <p>• Password: <span className="font-mono font-semibold">teacher123</span></p>
-                </div>
-              </div>
-              
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Học sinh</span>
-                  <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">Student</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>• Username: <span className="font-mono font-semibold">student</span></p>
-                  <p>• Password: <span className="font-mono font-semibold">student123</span></p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Divider */}
           <div className="relative my-6">
@@ -228,11 +318,11 @@ const Login = () => {
               <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">hoặc đăng nhập với</span>
+              <span className="px-4 bg-white text-gray-500">hoặc đăng ký với</span>
             </div>
           </div>
 
-          {/* Social Login */}
+          {/* Social Register */}
           <div className="grid grid-cols-2 gap-3">
             <button className="flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors">
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -266,4 +356,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

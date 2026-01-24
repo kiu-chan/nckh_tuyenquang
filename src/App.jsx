@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { publicRoutes, privateRoutes } from './routes';
 import DefaultLayout from './components/Layout/DefaultLayout';
@@ -15,7 +14,6 @@ function App() {
             {publicRoutes.map((route, index) => {
               const Page = route.component;
               
-              // Nếu layout là null thì render component trực tiếp
               if (route.layout === null) {
                 return (
                   <Route
@@ -26,7 +24,6 @@ function App() {
                 );
               }
 
-              // Ngược lại sử dụng DefaultLayout
               const Layout = route.layout || DefaultLayout;
               return (
                 <Route
@@ -41,7 +38,7 @@ function App() {
               );
             })}
 
-            {/* Private Routes (Admin) */}
+            {/* Private Routes */}
             {privateRoutes.map((route, index) => {
               const Page = route.component;
               const Layout = route.layout;
@@ -51,8 +48,8 @@ function App() {
                   key={`private-${index}`}
                   path={route.path}
                   element={
-                    <PrivateRoute>
-                      {Layout ?  (
+                    <PrivateRoute allowedRoles={route.allowedRoles || []}>
+                      {Layout ? (
                         <Layout>
                           <Page />
                         </Layout>
