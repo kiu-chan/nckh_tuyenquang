@@ -1,259 +1,226 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
-  FaUsers, 
-  FaMapMarkerAlt, 
-  FaCheckCircle, 
-  FaChartLine,
-  FaArrowUp,
-  FaArrowDown
-} from 'react-icons/fa';
+  FiUsers, 
+  FiBook,
+  FiActivity,
+  FiTrendingUp,
+  FiTrendingDown,
+  FiAlertCircle,
+  FiCheckCircle
+} from 'react-icons/fi';
+import { 
+  IoSchoolOutline,
+  IoStatsChartOutline,
+  IoDocumentTextOutline,
+  IoGameControllerOutline
+} from 'react-icons/io5';
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    totalAddresses:  0,
-    verifiedAddresses: 0,
-    pendingValidations: 0,
-    userGrowth: 0,
-    addressGrowth: 0,
-    verificationRate: 0
-  });
+  const [timeRange, setTimeRange] = useState('7days');
 
-  const [recentActivities, setRecentActivities] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate fetching data
-    const fetchData = async () => {
-      try {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Mock data
-        setStats({
-          totalUsers: 1234,
-          totalAddresses: 5678,
-          verifiedAddresses: 4321,
-          pendingValidations: 234,
-          userGrowth:  12.5,
-          addressGrowth: 8.3,
-          verificationRate: 76.2
-        });
-
-        setRecentActivities([
-          {
-            id: 1,
-            type: 'user',
-            message: 'Người dùng mới đăng ký',
-            user: 'Nguyễn Văn A',
-            time: '5 phút trước'
-          },
-          {
-            id: 2,
-            type: 'address',
-            message: 'Địa chỉ mới được thêm',
-            address: '123 Nguyễn Huệ, Q1, TP.HCM',
-            time: '10 phút trước'
-          },
-          {
-            id:  3,
-            type: 'validation',
-            message: 'Địa chỉ được xác minh',
-            address: '456 Lê Lợi, Q3, TP.HCM',
-            time: '15 phút trước'
-          },
-          {
-            id: 4,
-            type: 'user',
-            message: 'Người dùng cập nhật thông tin',
-            user: 'Trần Thị B',
-            time: '20 phút trước'
-          },
-          {
-            id: 5,
-            type: 'validation',
-            message: 'Yêu cầu xác minh mới',
-            address: '789 Trần Hưng Đạo, Q5, TP.HCM',
-            time: '25 phút trước'
-          }
-        ]);
-
-        setLoading(false);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  const statCards = [
+  // 6 stats chính
+  const stats = [
     {
-      title: 'Tổng người dùng',
-      value:  stats.totalUsers,
-      icon: FaUsers,
-      color: 'from-blue-500 to-blue-600',
-      growth: stats.userGrowth,
-      bgColor: 'bg-blue-50'
+      label: 'Tổng người dùng',
+      value: '2,547',
+      change: '+12.5%',
+      trend: 'up',
+      icon: FiUsers,
+      bgColor: 'bg-blue-50',
+      iconColor: 'text-blue-600',
+      changeColor: 'text-blue-600'
     },
     {
-      title: 'Tổng địa chỉ',
-      value: stats.totalAddresses,
-      icon: FaMapMarkerAlt,
-      color: 'from-green-500 to-green-600',
-      growth: stats.addressGrowth,
-      bgColor: 'bg-green-50'
+      label: 'Giáo viên',
+      value: '156',
+      change: '+8.2%',
+      trend: 'up',
+      icon: IoSchoolOutline,
+      bgColor: 'bg-green-50',
+      iconColor: 'text-green-600',
+      changeColor: 'text-green-600'
     },
     {
-      title: 'Địa chỉ đã xác minh',
-      value: stats.verifiedAddresses,
-      icon: FaCheckCircle,
-      color: 'from-purple-500 to-purple-600',
-      growth: stats.verificationRate,
-      bgColor: 'bg-purple-50'
+      label: 'Học sinh',
+      value: '2,391',
+      change: '+15.3%',
+      trend: 'up',
+      icon: FiBook,
+      bgColor: 'bg-purple-50',
+      iconColor: 'text-purple-600',
+      changeColor: 'text-purple-600'
     },
     {
-      title: 'Chờ xác minh',
-      value: stats.pendingValidations,
-      icon: FaChartLine,
-      color: 'from-orange-500 to-orange-600',
-      growth: -3.2,
-      bgColor: 'bg-orange-50'
+      label: 'Tài liệu',
+      value: '1,248',
+      change: '+23.1%',
+      trend: 'up',
+      icon: IoDocumentTextOutline,
+      bgColor: 'bg-orange-50',
+      iconColor: 'text-orange-600',
+      changeColor: 'text-orange-600'
+    },
+    {
+      label: 'Đề thi',
+      value: '387',
+      change: '+18.7%',
+      trend: 'up',
+      icon: IoStatsChartOutline,
+      bgColor: 'bg-pink-50',
+      iconColor: 'text-pink-600',
+      changeColor: 'text-pink-600'
+    },
+    {
+      label: 'Hoạt động/ngày',
+      value: '4,826',
+      change: '+7.8%',
+      trend: 'up',
+      icon: FiActivity,
+      bgColor: 'bg-cyan-50',
+      iconColor: 'text-cyan-600',
+      changeColor: 'text-cyan-600'
     }
   ];
 
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'user':
-        return <FaUsers className="text-blue-500" />;
-      case 'address': 
-        return <FaMapMarkerAlt className="text-green-500" />;
-      case 'validation':
-        return <FaCheckCircle className="text-purple-500" />;
-      default:
-        return <FaChartLine className="text-gray-500" />;
-    }
-  };
+  // Hoạt động gần đây
+  const recentActivities = [
+    { id: 1, user: 'Nguyễn Văn A', action: 'tạo đề thi mới', subject: 'Toán học', time: '5 phút trước' },
+    { id: 2, user: 'Trần Thị B', action: 'tải lên tài liệu', subject: 'Vật lý', time: '12 phút trước' },
+    { id: 3, user: 'Lê Văn C', action: 'hoàn thành quiz', subject: 'Hóa học', time: '23 phút trước' },
+    { id: 4, user: 'Phạm Thị D', action: 'chia sẻ tài liệu', subject: 'Sinh học', time: '1 giờ trước' },
+    { id: 5, user: 'Hoàng Văn E', action: 'tạo trò chơi', subject: 'Địa lý', time: '2 giờ trước' }
+  ];
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-      </div>
-    );
-  }
+  // Cảnh báo hệ thống
+  const systemAlerts = [
+    { 
+      id: 1, 
+      type: 'warning', 
+      title: 'Dung lượng gần đầy', 
+      message: 'Dung lượng đã sử dụng 85%',
+      icon: FiAlertCircle,
+      bgColor: 'bg-yellow-50',
+      borderColor: 'border-yellow-500',
+      iconColor: 'text-yellow-600'
+    },
+    { 
+      id: 2, 
+      type: 'info', 
+      title: 'Cập nhật hệ thống', 
+      message: 'Phiên bản 2.1.0 đã sẵn sàng',
+      icon: FiActivity,
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-500',
+      iconColor: 'text-blue-600'
+    },
+    { 
+      id: 3, 
+      type: 'success', 
+      title: 'Backup thành công', 
+      message: 'Dữ liệu đã được sao lưu',
+      icon: FiCheckCircle,
+      bgColor: 'bg-green-50',
+      borderColor: 'border-green-500',
+      iconColor: 'text-green-600'
+    }
+  ];
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-        <p className="text-gray-600 mt-2">Tổng quan hệ thống Localizy</p>
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Tổng quan hệ thống</h1>
+          <p className="text-gray-600 mt-1">Chào mừng quay trở lại, Administrator!</p>
+        </div>
+        <select
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+          className="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="7days">7 ngày qua</option>
+          <option value="30days">30 ngày qua</option>
+          <option value="90days">90 ngày qua</option>
+        </select>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, index) => (
-          <div
-            key={index}
-            className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 overflow-hidden"
-          >
-            <div className={`p-6 ${stat.bgColor}`}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">
-                    {stat.title}
-                  </p>
-                  <p className="text-3xl font-bold text-gray-800">
-                    {stat.value. toLocaleString()}
-                  </p>
+      {/* Stats Grid - 6 cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {stats.map((stat, index) => {
+          const Icon = stat.icon;
+          return (
+            <div key={index} className="bg-white rounded-xl p-6 border border-gray-100 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className={`w-12 h-12 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
+                  <Icon className={`w-6 h-6 ${stat.iconColor}`} />
                 </div>
-                <div className={`p-4 bg-gradient-to-br ${stat.color} rounded-xl`}>
-                  <stat.icon className="text-white" size={24} />
-                </div>
-              </div>
-              
-              <div className="mt-4 flex items-center">
-                {stat.growth >= 0 ? (
-                  <FaArrowUp className="text-green-500 mr-1" size={12} />
-                ) : (
-                  <FaArrowDown className="text-red-500 mr-1" size={12} />
-                )}
-                <span className={`text-sm font-medium ${
-                  stat.growth >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {Math.abs(stat.growth)}%
+                <span className={`flex items-center gap-1 text-sm font-semibold ${stat.changeColor}`}>
+                  {stat.trend === 'up' ? <FiTrendingUp className="w-4 h-4" /> : <FiTrendingDown className="w-4 h-4" />}
+                  {stat.change}
                 </span>
-                <span className="text-sm text-gray-500 ml-2">so với tháng trước</span>
+              </div>
+              <div>
+                <p className="text-3xl font-bold text-gray-800 mb-1">{stat.value}</p>
+                <p className="text-sm text-gray-600">{stat.label}</p>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activities */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Hoạt động gần đây</h2>
+      {/* 2 Columns: Activities & Alerts */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Hoạt động gần đây - 2 columns */}
+        <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-gray-100">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-gray-800">Hoạt động gần đây</h2>
+            <button className="text-sm text-indigo-600 font-medium hover:text-indigo-700">
+              Xem tất cả
+            </button>
+          </div>
           <div className="space-y-4">
             {recentActivities.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <div className="flex-shrink-0 mt-1">
-                  {getActivityIcon(activity.type)}
+              <div key={activity.id} className="flex items-start gap-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                  {activity.user.charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800">
-                    {activity.message}
+                  <p className="text-sm text-gray-800">
+                    <span className="font-semibold">{activity.user}</span> {activity.action}
                   </p>
-                  <p className="text-sm text-gray-600 truncate">
-                    {activity. user || activity.address}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-gray-600">{activity.subject}</span>
+                    <span className="text-xs text-gray-400">•</span>
+                    <span className="text-xs text-gray-500">{activity.time}</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Thống kê nhanh</h2>
+        {/* Cảnh báo hệ thống - 1 column */}
+        <div className="bg-white rounded-xl p-6 border border-gray-100">
+          <h2 className="text-xl font-bold text-gray-800 mb-6">Cảnh báo hệ thống</h2>
           <div className="space-y-4">
-            <div className="border-l-4 border-green-500 pl-4">
-              <p className="text-sm text-gray-600">Tỷ lệ xác minh</p>
-              <p className="text-2xl font-bold text-gray-800">{stats.verificationRate}%</p>
-              <div className="mt-2 bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full"
-                  style={{ width: `${stats.verificationRate}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="border-l-4 border-blue-500 pl-4">
-              <p className="text-sm text-gray-600">Người dùng hoạt động</p>
-              <p className="text-2xl font-bold text-gray-800">892</p>
-              <p className="text-xs text-gray-500 mt-1">Trong 24 giờ qua</p>
-            </div>
-
-            <div className="border-l-4 border-purple-500 pl-4">
-              <p className="text-sm text-gray-600">Địa chỉ mới hôm nay</p>
-              <p className="text-2xl font-bold text-gray-800">47</p>
-              <p className="text-xs text-gray-500 mt-1">+12% so với hôm qua</p>
-            </div>
-
-            <div className="border-l-4 border-orange-500 pl-4">
-              <p className="text-sm text-gray-600">Trung bình xác minh/ngày</p>
-              <p className="text-2xl font-bold text-gray-800">156</p>
-              <p className="text-xs text-gray-500 mt-1">Trong 7 ngày qua</p>
-            </div>
+            {systemAlerts.map((alert) => {
+              const Icon = alert.icon;
+              return (
+                <div key={alert.id} className={`p-4 rounded-xl border-l-4 ${alert.bgColor} ${alert.borderColor}`}>
+                  <div className="flex items-start gap-3">
+                    <Icon className={`w-5 h-5 ${alert.iconColor} mt-0.5 flex-shrink-0`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm">{alert.title}</p>
+                      <p className="text-xs text-gray-600 mt-1">{alert.message}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+
       </div>
     </div>
   );
