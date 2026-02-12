@@ -12,6 +12,8 @@ import TeacherNotebook from "../pages/teacher/Notebook/index.jsx";
 import TeacherDocuments from "../pages/teacher/Documents/index.jsx";
 import TeacherExams from "../pages/teacher/Exams/index.jsx";
 import TeacherGames from "../pages/teacher/Games/index.jsx";
+import TeacherStudents from "../pages/teacher/Students/index.jsx";
+import TeacherStatistics from "../pages/teacher/Statistics/index.jsx";
 import StudentLayout from "../components/studentLayout/StudentLayout";
 
 // Routes công khai
@@ -75,6 +77,18 @@ const privateRoutes = [
   {
     path: "/teacher/games",
     component: TeacherGames,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/students",
+    component: TeacherStudents,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/statistics",
+    component: TeacherStatistics,
     layout: TeacherLayout,
     allowedRoles: ['teacher']
   },
