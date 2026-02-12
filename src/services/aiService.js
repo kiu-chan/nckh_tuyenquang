@@ -246,6 +246,91 @@ export const extractTextFromFile = async (file) => {
 };
 
 /**
+ * Tóm tắt tài liệu với AI
+ */
+export const summarizeDocument = async ({
+  content,
+  summaryType = 'list',
+  subject = '',
+  additionalInstructions = ''
+}) => {
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+    const summaryTypeMap = {
+      list: {
+        name: 'Danh sách có số thứ tự',
+        format: 'Sử dụng số thứ tự (1., 2., 3...) và phân cấp rõ ràng với gạch đầu dòng (-) cho các mục con'
+      },
+      table: {
+        name: 'Bảng',
+        format: 'Trình bày dưới dạng bảng văn bản với ký tự ASCII (┌─┬─┐ │ │ ├─┼─┤ └─┴─┘), có cột và hàng rõ ràng'
+      },
+      bullets: {
+        name: 'Gạch đầu dòng',
+        format: 'Sử dụng dấu gạch đầu dòng (-, •, ◦) để tổ chức thông tin theo cấp bậc'
+      },
+      framework: {
+        name: 'Khung sườn bài giảng',
+        format: `Tạo khung sườn giáo án đầy đủ bao gồm:
+I. MỤC TIÊU BÀI HỌC (Kiến thức, Kỹ năng, Thái độ)
+II. CHUẨN BỊ (Giáo viên, Học sinh)
+III. TIẾN TRÌNH DẠY HỌC (Hoạt động khởi động, Hình thành kiến thức, Luyện tập, Vận dụng, Tổng kết)
+IV. HƯỚNG DẪN VỀ NHÀ`
+      }
+    };
+
+    const typeInfo = summaryTypeMap[summaryType] || summaryTypeMap.list;
+
+    const prompt = `
+Bạn là một giáo viên chuyên nghiệp. Hãy tóm tắt nội dung tài liệu sau theo dạng "${typeInfo.name}".
+
+${subject ? `MÔN HỌC: ${subject}\n` : ''}
+DẠNG TÓM TẮT: ${typeInfo.name}
+
+NỘI DUNG TÀI LIỆU:
+${content}
+
+${additionalInstructions ? `\nYÊU CẦU BỔ SUNG:\n${additionalInstructions}\n` : ''}
+
+YÊU CẦU CHUNG:
+1. ${typeInfo.format}
+2. Nội dung phải chính xác, súc tích, dễ hiểu
+3. Giữ lại các thông tin quan trọng: khái niệm, định nghĩa, công thức, ví dụ
+4. Tổ chức logic, có cấu trúc rõ ràng
+5. Sử dụng tiếng Việt chuẩn, chuyên ngành (nếu có)
+6. Độ dài phù hợp: không quá ngắn cũng không quá dài
+
+${summaryType === 'framework' ? `
+LƯU Ý ĐẶC BIỆT CHO KHUNG SƯỜN GIÁO ÁN:
+- Ước lượng thời gian cho từng hoạt động (tổng 45 phút)
+- Đề xuất phương pháp dạy học phù hợp
+- Gợi ý câu hỏi, bài tập cụ thể
+- Liên hệ với thực tế cuộc sống
+` : ''}
+
+Hãy trả về nội dung tóm tắt theo định dạng yêu cầu, không thêm bất kỳ giải thích nào khác.
+`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
+
+    return {
+      success: true,
+      content: text.trim()
+    };
+  } catch (error) {
+    console.error('Error summarizing document:', error);
+    return {
+      success: false,
+      error: error.message || 'Không thể tóm tắt tài liệu. Vui lòng thử lại.',
+      content: ''
+    };
+  }
+};
+
+/**
  * Tạo đề thi hỗn hợp (trắc nghiệm + tự luận)
  */
 export const generateMixedExam = async ({
