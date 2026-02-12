@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { 
+import {
   FiPlus,
   FiSearch,
   FiFilter,
@@ -17,7 +17,7 @@ import {
   FiCalendar,
   FiFileText
 } from 'react-icons/fi';
-import { 
+import {
   IoDocumentTextOutline,
   IoCreateOutline,
   IoSparklesOutline,
@@ -26,6 +26,7 @@ import {
   IoTimeOutline,
   IoPeopleOutline
 } from 'react-icons/io5';
+import AIExamCreator from '../../../components/AIExamCreator';
 
 const TeacherExams = () => {
   const [activeTab, setActiveTab] = useState('all'); // all, draft, published, completed
@@ -33,6 +34,18 @@ const TeacherExams = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('all');
+
+  // AI Creation states
+  const [creationMethod, setCreationMethod] = useState('ai'); // 'manual' or 'ai'
+  const [examConfig, setExamConfig] = useState({
+    title: '',
+    subject: '',
+    subjectId: '',
+    type: 'multiple-choice',
+    difficulty: 'medium',
+    duration: 90,
+    totalQuestions: 30
+  });
 
   const subjects = [
     { id: 'all', name: 'Tất cả môn' },
@@ -224,6 +237,21 @@ const TeacherExams = () => {
   const getProgressPercentage = (submitted, total) => {
     if (total === 0) return 0;
     return Math.round((submitted / total) * 100);
+  };
+
+  const handleQuestionsGenerated = (data) => {
+    // Xử lý khi AI tạo xong câu hỏi
+    console.log('Questions generated:', data);
+    // TODO: Lưu vào database hoặc state
+    alert(`Đã tạo ${data.totalQuestions} câu hỏi thành công! (Tính năng lưu đang phát triển)`);
+    setShowCreateModal(false);
+  };
+
+  const handleExamConfigChange = (field, value) => {
+    setExamConfig(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   return (
@@ -534,7 +562,10 @@ const TeacherExams = () => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Tạo đề thi mới</h2>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreationMethod('ai');
+                }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <FiXCircle className="w-6 h-6 text-gray-600" />
@@ -548,16 +579,30 @@ const TeacherExams = () => {
                   Chọn phương thức tạo đề
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button className="p-6 border-2 border-gray-200 rounded-xl hover:border-emerald-500 hover:bg-emerald-50 transition-all text-left">
+                  <button
+                    onClick={() => setCreationMethod('manual')}
+                    className={`p-6 border-2 rounded-xl transition-all text-left ${
+                      creationMethod === 'manual'
+                        ? 'border-emerald-500 bg-emerald-50'
+                        : 'border-gray-200 hover:border-emerald-500 hover:bg-emerald-50'
+                    }`}
+                  >
                     <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
                       <IoCreateOutline className="w-6 h-6 text-emerald-600" />
                     </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Tạo thủ công</h3>
                     <p className="text-sm text-gray-500">Tự soạn từng câu hỏi theo ý muốn</p>
                   </button>
-                  <button className="p-6 border-2 border-emerald-500 bg-emerald-50 rounded-xl transition-all text-left">
-                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center mb-3">
-                      <IoSparklesOutline className="w-6 h-6 text-emerald-600" />
+                  <button
+                    onClick={() => setCreationMethod('ai')}
+                    className={`p-6 border-2 rounded-xl transition-all text-left ${
+                      creationMethod === 'ai'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-purple-500 hover:bg-purple-50'
+                    }`}
+                  >
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-3">
+                      <IoSparklesOutline className="w-6 h-6 text-purple-600" />
                     </div>
                     <h3 className="font-semibold text-gray-800 mb-2">Tạo bằng AI</h3>
                     <p className="text-sm text-gray-500">AI tự động tạo câu hỏi từ tài liệu</p>
@@ -565,88 +610,191 @@ const TeacherExams = () => {
                 </div>
               </div>
 
-              {/* Basic Info */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tên đề thi
-                </label>
-                <input
-                  type="text"
-                  placeholder="VD: Kiểm tra giữa kỳ I - Toán 10"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
-              </div>
+              {creationMethod === 'manual' ? (
+                <>
+                  {/* Basic Info */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tên đề thi
+                    </label>
+                    <input
+                      type="text"
+                      value={examConfig.title}
+                      onChange={(e) => handleExamConfigChange('title', e.target.value)}
+                      placeholder="VD: Kiểm tra giữa kỳ I - Toán 10"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Môn học
-                  </label>
-                  <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option>Chọn môn học</option>
-                    <option>Toán học</option>
-                    <option>Vật lý</option>
-                    <option>Hóa học</option>
-                    <option>Sinh học</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Loại đề
-                  </label>
-                  <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option>Trắc nghiệm</option>
-                    <option>Tự luận</option>
-                    <option>Trắc nghiệm + Tự luận</option>
-                  </select>
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Môn học
+                      </label>
+                      <select
+                        value={examConfig.subject}
+                        onChange={(e) => {
+                          const subject = e.target.value;
+                          const subjectId = subjects.find(s => s.name === subject)?.id || '';
+                          setExamConfig(prev => ({ ...prev, subject, subjectId }));
+                        }}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="">Chọn môn học</option>
+                        {subjects.filter(s => s.id !== 'all').map(s => (
+                          <option key={s.id} value={s.name}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Loại đề
+                      </label>
+                      <select
+                        value={examConfig.type}
+                        onChange={(e) => handleExamConfigChange('type', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="multiple-choice">Trắc nghiệm</option>
+                        <option value="essay">Tự luận</option>
+                        <option value="mixed">Trắc nghiệm + Tự luận</option>
+                      </select>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Thời gian (phút)
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="90"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Thời gian (phút)
+                      </label>
+                      <input
+                        type="number"
+                        value={examConfig.duration}
+                        onChange={(e) => handleExamConfigChange('duration', parseInt(e.target.value))}
+                        placeholder="90"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Số câu hỏi
+                      </label>
+                      <input
+                        type="number"
+                        value={examConfig.totalQuestions}
+                        onChange={(e) => handleExamConfigChange('totalQuestions', parseInt(e.target.value))}
+                        placeholder="30"
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Độ khó
+                      </label>
+                      <select
+                        value={examConfig.difficulty}
+                        onChange={(e) => handleExamConfigChange('difficulty', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        <option value="easy">Dễ</option>
+                        <option value="medium">Trung bình</option>
+                        <option value="hard">Khó</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setShowCreateModal(false);
+                        setCreationMethod('ai');
+                      }}
+                      className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      onClick={() => {
+                        alert('Tính năng tạo thủ công đang phát triển');
+                      }}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
+                    >
+                      Tiếp tục
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* AI Creation - Basic Config First */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Môn học
+                        </label>
+                        <select
+                          value={examConfig.subject}
+                          onChange={(e) => {
+                            const subject = e.target.value;
+                            const subjectId = subjects.find(s => s.name === subject)?.id || '';
+                            setExamConfig(prev => ({ ...prev, subject, subjectId }));
+                          }}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="">Chọn môn học</option>
+                          {subjects.filter(s => s.id !== 'all').map(s => (
+                            <option key={s.id} value={s.name}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Loại đề
+                        </label>
+                        <select
+                          value={examConfig.type}
+                          onChange={(e) => handleExamConfigChange('type', e.target.value)}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        >
+                          <option value="multiple-choice">Trắc nghiệm</option>
+                          <option value="essay">Tự luận</option>
+                          <option value="mixed">Trắc nghiệm + Tự luận</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Độ khó
+                      </label>
+                      <select
+                        value={examConfig.difficulty}
+                        onChange={(e) => handleExamConfigChange('difficulty', e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="easy">Dễ</option>
+                        <option value="medium">Trung bình</option>
+                        <option value="hard">Khó</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-gray-200 my-4"></div>
+
+                  {/* AI Exam Creator Component */}
+                  <AIExamCreator
+                    examType={examConfig.type}
+                    subject={examConfig.subject}
+                    difficulty={examConfig.difficulty}
+                    onQuestionsGenerated={handleQuestionsGenerated}
+                    onClose={() => {
+                      setShowCreateModal(false);
+                      setCreationMethod('ai');
+                    }}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Số câu hỏi
-                  </label>
-                  <input
-                    type="number"
-                    placeholder="30"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Độ khó
-                  </label>
-                  <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option>Dễ</option>
-                    <option>Trung bình</option>
-                    <option>Khó</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all">
-                  Tiếp tục
-                </button>
-              </div>
+                </>
+              )}
             </div>
           </div>
         </div>
