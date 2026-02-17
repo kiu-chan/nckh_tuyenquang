@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiSearch,
-  FiFilter,
-  FiMoreVertical,
-  FiEdit2,
   FiTrash2,
   FiMail,
   FiPhone,
@@ -14,21 +11,46 @@ import {
   FiX,
   FiDownload,
   FiUpload,
-  FiStar,
   FiAward,
   FiTrendingUp,
-  FiBookOpen
+  FiBookOpen,
+  FiLoader,
+  FiCheck,
+  FiUserPlus,
 } from 'react-icons/fi';
 import {
   IoPersonOutline,
   IoSchoolOutline,
   IoCalendarOutline,
   IoCheckmarkCircleOutline,
-  IoCloseCircleOutline
+  IoCloseCircleOutline,
 } from 'react-icons/io5';
 
+const API_URL = '/api/students';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const initialFormData = {
+  name: '',
+  gender: 'Nam',
+  dateOfBirth: '',
+  className: '',
+  email: '',
+  phone: '',
+  address: '',
+  parentName: '',
+  parentPhone: '',
+  notes: '',
+};
+
 const TeacherStudents = () => {
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [viewMode, setViewMode] = useState('grid');
   const [selectedClass, setSelectedClass] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,207 +58,180 @@ const TeacherStudents = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
-  const classes = [
-    { id: 'all', name: 'Tất cả', count: 156, color: 'gray' },
-    { id: '10a1', name: 'Lớp 10A1', count: 42, color: 'blue' },
-    { id: '10a2', name: 'Lớp 10A2', count: 38, color: 'green' },
-    { id: '10a3', name: 'Lớp 10A3', count: 40, color: 'purple' },
-    { id: '11a1', name: 'Lớp 11A1', count: 36, color: 'orange' },
-  ];
+  const [students, setStudents] = useState([]);
+  const [statsData, setStatsData] = useState(null);
+  const [classes, setClasses] = useState([{ id: 'all', name: 'Tất cả', count: 0 }]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState(initialFormData);
+  const [error, setError] = useState('');
+  const [emailStatus, setEmailStatus] = useState(null); // null | 'checking' | 'exists' | 'new'
+  const [emailUser, setEmailUser] = useState(null);
+  const emailTimerRef = useRef(null);
+  const [isNewClass, setIsNewClass] = useState(false);
 
-  const students = [
-    {
-      id: 1,
-      name: 'Nguyễn Văn An',
-      class: '10a1',
-      email: 'nguyenvanan@gmail.com',
-      phone: '0912345678',
-      avatar: null,
-      status: 'active',
-      score: 8.5,
-      attendance: 95,
-      assignments: { completed: 24, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '15/03/2008',
-      gender: 'Nam',
-      parentName: 'Nguyễn Văn B',
-      parentPhone: '0987654321',
-      notes: 'Học sinh chăm chỉ, tích cực tham gia các hoạt động'
-    },
-    {
-      id: 2,
-      name: 'Trần Thị Bình',
-      class: '10a1',
-      email: 'tranthibinh@gmail.com',
-      phone: '0923456789',
-      avatar: null,
-      status: 'active',
-      score: 9.2,
-      attendance: 98,
-      assignments: { completed: 26, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '22/05/2008',
-      gender: 'Nữ',
-      parentName: 'Trần Văn C',
-      parentPhone: '0976543210',
-      notes: 'Học sinh xuất sắc, luôn hoàn thành bài tập đúng hạn'
-    },
-    {
-      id: 3,
-      name: 'Lê Minh Châu',
-      class: '10a2',
-      email: 'leminhchau@gmail.com',
-      phone: '0934567890',
-      avatar: null,
-      status: 'active',
-      score: 7.8,
-      attendance: 88,
-      assignments: { completed: 22, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '10/08/2008',
-      gender: 'Nữ',
-      parentName: 'Lê Văn D',
-      parentPhone: '0965432109',
-      notes: 'Cần cải thiện về mặt điểm danh'
-    },
-    {
-      id: 4,
-      name: 'Phạm Quốc Dũng',
-      class: '10a2',
-      email: 'phamquocdung@gmail.com',
-      phone: '0945678901',
-      avatar: null,
-      status: 'active',
-      score: 8.9,
-      attendance: 92,
-      assignments: { completed: 25, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '03/12/2007',
-      gender: 'Nam',
-      parentName: 'Phạm Văn E',
-      parentPhone: '0954321098',
-      notes: 'Học sinh giỏi, có tinh thần trách nhiệm cao'
-    },
-    {
-      id: 5,
-      name: 'Hoàng Thu Hà',
-      class: '10a3',
-      email: 'hoangthuha@gmail.com',
-      phone: '0956789012',
-      avatar: null,
-      status: 'inactive',
-      score: 6.5,
-      attendance: 75,
-      assignments: { completed: 18, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '28/09/2008',
-      gender: 'Nữ',
-      parentName: 'Hoàng Văn F',
-      parentPhone: '0943210987',
-      notes: 'Nghỉ học nhiều, cần liên hệ phụ huynh'
-    },
-    {
-      id: 6,
-      name: 'Vũ Đức Kiên',
-      class: '10a3',
-      email: 'vuduckien@gmail.com',
-      phone: '0967890123',
-      avatar: null,
-      status: 'active',
-      score: 8.1,
-      attendance: 90,
-      assignments: { completed: 23, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '17/06/2008',
-      gender: 'Nam',
-      parentName: 'Vũ Văn G',
-      parentPhone: '0932109876',
-      notes: 'Học sinh khá, có khả năng phát triển tốt'
-    },
-    {
-      id: 7,
-      name: 'Đặng Thị Linh',
-      class: '11a1',
-      email: 'dangthilinh@gmail.com',
-      phone: '0978901234',
-      avatar: null,
-      status: 'active',
-      score: 9.5,
-      attendance: 99,
-      assignments: { completed: 26, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '05/01/2007',
-      gender: 'Nữ',
-      parentName: 'Đặng Văn H',
-      parentPhone: '0921098765',
-      notes: 'Học sinh xuất sắc nhất lớp, luôn đạt thành tích cao'
-    },
-    {
-      id: 8,
-      name: 'Bùi Văn Minh',
-      class: '11a1',
-      email: 'buivanminh@gmail.com',
-      phone: '0989012345',
-      avatar: null,
-      status: 'active',
-      score: 7.2,
-      attendance: 85,
-      assignments: { completed: 21, total: 26 },
-      address: 'Hà Nội',
-      dateOfBirth: '12/11/2007',
-      gender: 'Nam',
-      parentName: 'Bùi Văn I',
-      parentPhone: '0910987654',
-      notes: 'Học sinh trung bình, cần động viên thêm'
-    },
-  ];
+  const fetchStudents = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedClass !== 'all') params.append('className', selectedClass);
+      if (selectedStatus !== 'all') params.append('status', selectedStatus);
+      if (searchQuery) params.append('search', searchQuery);
+
+      const res = await fetch(`${API_URL}?${params}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) {
+        setStudents(data.students);
+      }
+    } catch (err) {
+      console.error('Error fetching students:', err);
+    }
+  }, [selectedClass, selectedStatus, searchQuery]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/stats`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) {
+        setStatsData(data.stats);
+        const classItems = [
+          { id: 'all', name: 'Tất cả', count: data.stats.total },
+          ...data.stats.classes.map((c) => ({ id: c.name, name: c.name, count: c.count })),
+        ];
+        setClasses(classItems);
+      }
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      await Promise.all([fetchStudents(), fetchStats()]);
+      setLoading(false);
+    };
+    load();
+  }, [fetchStudents, fetchStats]);
+
+  const checkEmail = useCallback(async (email) => {
+    if (!email || !email.includes('@')) {
+      setEmailStatus(null);
+      setEmailUser(null);
+      return;
+    }
+    setEmailStatus('checking');
+    try {
+      const res = await fetch(`${API_URL}/check-email?email=${encodeURIComponent(email)}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (data.exists) {
+          setEmailStatus('exists');
+          setEmailUser(data.user);
+          // Tự động điền tên nếu chưa nhập
+          setFormData((prev) => prev.name ? prev : { ...prev, name: data.user.name });
+        } else {
+          setEmailStatus('new');
+          setEmailUser(null);
+        }
+      }
+    } catch {
+      setEmailStatus(null);
+    }
+  }, []);
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // Debounce check email khi nhập email
+    if (name === 'email') {
+      clearTimeout(emailTimerRef.current);
+      emailTimerRef.current = setTimeout(() => checkEmail(value), 500);
+    }
+  };
+
+  const handleAddStudent = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || 'Có lỗi xảy ra');
+        setSubmitting(false);
+        return;
+      }
+
+      setShowAddModal(false);
+      setFormData(initialFormData);
+      await Promise.all([fetchStudents(), fetchStats()]);
+    } catch (err) {
+      setError('Lỗi kết nối server');
+    }
+    setSubmitting(false);
+  };
+
+  const handleDeleteStudent = async (id) => {
+    if (!window.confirm('Bạn có chắc muốn xóa học sinh này?')) return;
+
+    try {
+      const res = await fetch(`${API_URL}/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        await Promise.all([fetchStudents(), fetchStats()]);
+        if (showDetailModal) setShowDetailModal(false);
+      }
+    } catch (err) {
+      console.error('Error deleting student:', err);
+    }
+  };
+
+  const handleViewDetail = (student) => {
+    setSelectedStudent(student);
+    setShowDetailModal(true);
+  };
 
   const stats = [
     {
       label: 'Tổng học sinh',
-      value: '156',
-      change: '+12',
+      value: statsData?.total ?? '-',
       icon: IoPersonOutline,
-      color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600'
+      textColor: 'text-blue-600',
     },
     {
       label: 'Học sinh xuất sắc',
-      value: '42',
-      change: '+5',
+      value: statsData?.excellent ?? '-',
       icon: FiAward,
-      color: 'from-emerald-500 to-emerald-600',
       bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600'
+      textColor: 'text-emerald-600',
     },
     {
       label: 'Điểm TB chung',
-      value: '8.2',
-      change: '+0.3',
+      value: statsData?.avgScore ?? '-',
       icon: FiTrendingUp,
-      color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600'
+      textColor: 'text-purple-600',
     },
     {
       label: 'Tỷ lệ đi học',
-      value: '92%',
-      change: '+2%',
+      value: statsData ? `${statsData.avgAttendance}%` : '-',
       icon: IoCheckmarkCircleOutline,
-      color: 'from-orange-500 to-orange-600',
       bgColor: 'bg-orange-50',
-      textColor: 'text-orange-600'
+      textColor: 'text-orange-600',
     },
   ];
-
-  const filteredStudents = students.filter(student => {
-    const matchesClass = selectedClass === 'all' || student.class === selectedClass;
-    const matchesStatus = selectedStatus === 'all' || student.status === selectedStatus;
-    const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         student.email.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesClass && matchesStatus && matchesSearch;
-  });
 
   const getScoreColor = (score) => {
     if (score >= 9) return 'text-emerald-600 bg-emerald-50';
@@ -252,10 +247,13 @@ const TeacherStudents = () => {
     return 'text-red-600';
   };
 
-  const handleViewDetail = (student) => {
-    setSelectedStudent(student);
-    setShowDetailModal(true);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <FiLoader className="w-8 h-8 text-emerald-500 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -275,7 +273,14 @@ const TeacherStudents = () => {
             <span>Export</span>
           </button>
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={() => {
+              setFormData(initialFormData);
+              setError('');
+              setEmailStatus(null);
+              setEmailUser(null);
+              setIsNewClass(false);
+              setShowAddModal(true);
+            }}
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg shadow-emerald-500/25"
           >
             <FiPlus className="w-5 h-5" />
@@ -297,7 +302,6 @@ const TeacherStudents = () => {
                 <div className={`w-12 h-12 ${stat.bgColor} rounded-xl flex items-center justify-center`}>
                   <Icon className={`w-6 h-6 ${stat.textColor}`} />
                 </div>
-                <span className="text-sm font-medium text-emerald-600">{stat.change}</span>
               </div>
               <p className="text-2xl font-bold text-gray-800 mb-1">{stat.value}</p>
               <p className="text-sm text-gray-500">{stat.label}</p>
@@ -309,7 +313,6 @@ const TeacherStudents = () => {
       {/* Filters & Search */}
       <div className="bg-white rounded-xl p-6 border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1">
             <div className="relative">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -323,7 +326,6 @@ const TeacherStudents = () => {
             </div>
           </div>
 
-          {/* Status Filter */}
           <select
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
@@ -334,7 +336,6 @@ const TeacherStudents = () => {
             <option value="inactive">Nghỉ học</option>
           </select>
 
-          {/* View Mode */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode('grid')}
@@ -375,9 +376,11 @@ const TeacherStudents = () => {
               >
                 <IoSchoolOutline className="w-4 h-4" />
                 <span>{classItem.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-emerald-100' : 'bg-gray-200'
-                }`}>
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    isActive ? 'bg-emerald-100' : 'bg-gray-200'
+                  }`}
+                >
                   {classItem.count}
                 </span>
               </button>
@@ -389,13 +392,12 @@ const TeacherStudents = () => {
       {/* Students Grid/List */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredStudents.map((student) => (
+          {students.map((student) => (
             <div
-              key={student.id}
+              key={student._id}
               className="bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all cursor-pointer group overflow-hidden"
               onClick={() => handleViewDetail(student)}
             >
-              {/* Header */}
               <div className="relative h-24 bg-gradient-to-br from-emerald-400 to-teal-500">
                 <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
@@ -404,7 +406,6 @@ const TeacherStudents = () => {
                     </div>
                   </div>
                 </div>
-                {/* Status Badge */}
                 <div className="absolute top-3 right-3">
                   {student.status === 'active' ? (
                     <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full">
@@ -420,16 +421,10 @@ const TeacherStudents = () => {
                 </div>
               </div>
 
-              {/* Info */}
               <div className="pt-12 p-4">
-                <h3 className="font-bold text-gray-800 text-center mb-1 truncate">
-                  {student.name}
-                </h3>
-                <p className="text-sm text-gray-500 text-center mb-4">
-                  {classes.find(c => c.id === student.class)?.name}
-                </p>
+                <h3 className="font-bold text-gray-800 text-center mb-1 truncate">{student.name}</h3>
+                <p className="text-sm text-gray-500 text-center mb-4">{student.className}</p>
 
-                {/* Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-4">
                   <div className="text-center">
                     <div className={`text-2xl font-bold ${getScoreColor(student.score)} rounded-lg py-1`}>
@@ -445,32 +440,34 @@ const TeacherStudents = () => {
                   </div>
                 </div>
 
-                {/* Progress */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
                     <span>Hoàn thành bài tập</span>
                     <span className="font-medium">
-                      {student.assignments.completed}/{student.assignments.total}
+                      {student.assignmentsCompleted}/{student.assignmentsTotal}
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div
                       className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all"
-                      style={{ width: `${(student.assignments.completed / student.assignments.total) * 100}%` }}
+                      style={{
+                        width: `${student.assignmentsTotal > 0 ? (student.assignmentsCompleted / student.assignmentsTotal) * 100 : 0}%`,
+                      }}
                     ></div>
                   </div>
                 </div>
 
-                {/* Contact */}
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-xs text-gray-600">
                     <FiMail className="w-3 h-3" />
                     <span className="truncate">{student.email}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <FiPhone className="w-3 h-3" />
-                    <span>{student.phone}</span>
-                  </div>
+                  {student.phone && (
+                    <div className="flex items-center gap-2 text-xs text-gray-600">
+                      <FiPhone className="w-3 h-3" />
+                      <span>{student.phone}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -492,8 +489,8 @@ const TeacherStudents = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50">
+              {students.map((student) => (
+                <tr key={student._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
@@ -507,7 +504,7 @@ const TeacherStudents = () => {
                   </td>
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
-                      {classes.find(c => c.id === student.class)?.name}
+                      {student.className}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">{student.email}</td>
@@ -525,7 +522,7 @@ const TeacherStudents = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-center text-sm text-gray-600">
-                      {student.assignments.completed}/{student.assignments.total}
+                      {student.assignmentsCompleted}/{student.assignmentsTotal}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -552,10 +549,14 @@ const TeacherStudents = () => {
                       >
                         <FiBookOpen className="w-4 h-4 text-gray-600" />
                       </button>
-                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Chỉnh sửa">
-                        <FiEdit2 className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors" title="Xóa">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteStudent(student._id);
+                        }}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Xóa"
+                      >
                         <FiTrash2 className="w-4 h-4 text-red-600" />
                       </button>
                     </div>
@@ -568,13 +569,13 @@ const TeacherStudents = () => {
       )}
 
       {/* Empty State */}
-      {filteredStudents.length === 0 && (
+      {students.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
             <IoPersonOutline className="w-10 h-10 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Không tìm thấy học sinh</h3>
-          <p className="text-gray-500 mb-6">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          <p className="text-gray-500 mb-6">Thử thay đổi bộ lọc hoặc thêm học sinh mới</p>
           <button
             onClick={() => {
               setSearchQuery('');
@@ -602,7 +603,13 @@ const TeacherStudents = () => {
               </button>
             </div>
 
-            <form className="space-y-4">
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleAddStudent} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -610,6 +617,10 @@ const TeacherStudents = () => {
                   </label>
                   <input
                     type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleFormChange}
+                    required
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     placeholder="Nhập họ và tên"
                   />
@@ -618,9 +629,14 @@ const TeacherStudents = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Giới tính <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <option>Nam</option>
-                    <option>Nữ</option>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleFormChange}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="Nam">Nam</option>
+                    <option value="Nữ">Nữ</option>
                   </select>
                 </div>
               </div>
@@ -632,6 +648,10 @@ const TeacherStudents = () => {
                   </label>
                   <input
                     type="date"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleFormChange}
+                    required
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
@@ -639,11 +659,56 @@ const TeacherStudents = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Lớp <span className="text-red-500">*</span>
                   </label>
-                  <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    {classes.filter(c => c.id !== 'all').map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {!isNewClass ? (
+                    <select
+                      name="className"
+                      value={formData.className}
+                      onChange={(e) => {
+                        if (e.target.value === '__new__') {
+                          setIsNewClass(true);
+                          setFormData((prev) => ({ ...prev, className: '' }));
+                        } else {
+                          handleFormChange(e);
+                        }
+                      }}
+                      required
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    >
+                      <option value="">-- Chọn lớp --</option>
+                      {classes
+                        .filter((c) => c.id !== 'all')
+                        .map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} ({c.count} HS)
+                          </option>
+                        ))}
+                      <option value="__new__">+ Tạo lớp mới...</option>
+                    </select>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        name="className"
+                        value={formData.className}
+                        onChange={handleFormChange}
+                        required
+                        autoFocus
+                        className="flex-1 px-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="VD: Lớp 10A1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsNewClass(false);
+                          setFormData((prev) => ({ ...prev, className: '' }));
+                        }}
+                        className="px-3 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 transition-colors"
+                        title="Quay lại chọn lớp"
+                      >
+                        <FiX className="w-5 h-5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -651,30 +716,74 @@ const TeacherStudents = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Email <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="email"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="email@example.com"
-                />
+                <div className="relative">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleFormChange}
+                    required
+                    className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 ${
+                      emailStatus === 'exists'
+                        ? 'border-emerald-400 focus:ring-emerald-500'
+                        : emailStatus === 'new'
+                        ? 'border-blue-400 focus:ring-blue-500'
+                        : 'border-gray-200 focus:ring-emerald-500'
+                    }`}
+                    placeholder="Nhập email học sinh..."
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    {emailStatus === 'checking' && (
+                      <FiLoader className="w-5 h-5 text-gray-400 animate-spin" />
+                    )}
+                    {emailStatus === 'exists' && (
+                      <FiCheck className="w-5 h-5 text-emerald-500" />
+                    )}
+                    {emailStatus === 'new' && (
+                      <FiUserPlus className="w-5 h-5 text-blue-500" />
+                    )}
+                  </div>
+                </div>
+                {/* Email status message */}
+                {emailStatus === 'exists' && emailUser && (
+                  <div className="mt-2 flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <FiCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <div className="text-sm">
+                      <span className="text-emerald-700">Tài khoản đã tồn tại: </span>
+                      <span className="font-medium text-emerald-800">{emailUser.name}</span>
+                      <span className="text-emerald-600"> ({emailUser.role === 'student' ? 'Học sinh' : emailUser.role})</span>
+                    </div>
+                  </div>
+                )}
+                {emailStatus === 'new' && (
+                  <div className="mt-2 flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <FiUserPlus className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <p className="text-sm text-blue-700">
+                      Email chưa có tài khoản. Hệ thống sẽ <span className="font-medium">tự động tạo tài khoản mới</span> khi thêm học sinh.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Số điện thoại
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
                 <input
                   type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleFormChange}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="0912345678"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Địa chỉ
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ</label>
                 <input
                   type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleFormChange}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="Nhập địa chỉ"
                 />
@@ -684,21 +793,23 @@ const TeacherStudents = () => {
                 <h3 className="font-semibold text-gray-800 mb-4">Thông tin phụ huynh</h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Họ tên phụ huynh
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Họ tên phụ huynh</label>
                     <input
                       type="text"
+                      name="parentName"
+                      value={formData.parentName}
+                      onChange={handleFormChange}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="Nhập họ tên phụ huynh"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      SĐT phụ huynh
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">SĐT phụ huynh</label>
                     <input
                       type="tel"
+                      name="parentPhone"
+                      value={formData.parentPhone}
+                      onChange={handleFormChange}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       placeholder="0987654321"
                     />
@@ -707,11 +818,12 @@ const TeacherStudents = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ghi chú
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
                 <textarea
                   rows="3"
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleFormChange}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   placeholder="Nhập ghi chú về học sinh..."
                 ></textarea>
@@ -727,9 +839,10 @@ const TeacherStudents = () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50"
                 >
-                  Thêm học sinh
+                  {submitting ? 'Đang thêm...' : 'Thêm học sinh'}
                 </button>
               </div>
             </form>
@@ -741,7 +854,6 @@ const TeacherStudents = () => {
       {showDetailModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
             <div className="relative h-32 bg-gradient-to-br from-emerald-400 to-teal-500">
               <button
                 onClick={() => setShowDetailModal(false)}
@@ -758,13 +870,12 @@ const TeacherStudents = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="pt-20 p-8">
               <div className="flex items-start justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedStudent.name}</h2>
                   <p className="text-gray-600">
-                    {classes.find(c => c.id === selectedStudent.class)?.name} • {selectedStudent.gender}
+                    {selectedStudent.className} &bull; {selectedStudent.gender}
                   </p>
                 </div>
                 {selectedStudent.status === 'active' ? (
@@ -780,7 +891,6 @@ const TeacherStudents = () => {
                 )}
               </div>
 
-              {/* Stats */}
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-blue-50 rounded-xl p-4 text-center">
                   <div className="text-3xl font-bold text-blue-600 mb-1">{selectedStudent.score}</div>
@@ -792,15 +902,13 @@ const TeacherStudents = () => {
                 </div>
                 <div className="bg-purple-50 rounded-xl p-4 text-center">
                   <div className="text-3xl font-bold text-purple-600 mb-1">
-                    {selectedStudent.assignments.completed}/{selectedStudent.assignments.total}
+                    {selectedStudent.assignmentsCompleted}/{selectedStudent.assignmentsTotal}
                   </div>
                   <div className="text-sm text-gray-600">Bài tập hoàn thành</div>
                 </div>
               </div>
 
-              {/* Info Sections */}
               <div className="space-y-6">
-                {/* Personal Info */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
                     <IoPersonOutline className="w-5 h-5" />
@@ -812,45 +920,53 @@ const TeacherStudents = () => {
                       <span className="text-sm text-gray-600">Email:</span>
                       <span className="text-sm font-medium text-gray-800">{selectedStudent.email}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <FiPhone className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">SĐT:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.phone}</span>
-                    </div>
+                    {selectedStudent.phone && (
+                      <div className="flex items-center gap-3">
+                        <FiPhone className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">SĐT:</span>
+                        <span className="text-sm font-medium text-gray-800">{selectedStudent.phone}</span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-3">
                       <IoCalendarOutline className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">Ngày sinh:</span>
                       <span className="text-sm font-medium text-gray-800">{selectedStudent.dateOfBirth}</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <FiMapPin className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">Địa chỉ:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.address}</span>
-                    </div>
+                    {selectedStudent.address && (
+                      <div className="flex items-center gap-3">
+                        <FiMapPin className="w-4 h-4 text-gray-400" />
+                        <span className="text-sm text-gray-600">Địa chỉ:</span>
+                        <span className="text-sm font-medium text-gray-800">{selectedStudent.address}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Parent Info */}
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <IoPersonOutline className="w-5 h-5" />
-                    Thông tin phụ huynh
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <IoPersonOutline className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">Họ tên:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.parentName}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <FiPhone className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">SĐT:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.parentPhone}</span>
+                {(selectedStudent.parentName || selectedStudent.parentPhone) && (
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                      <IoPersonOutline className="w-5 h-5" />
+                      Thông tin phụ huynh
+                    </h3>
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                      {selectedStudent.parentName && (
+                        <div className="flex items-center gap-3">
+                          <IoPersonOutline className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">Họ tên:</span>
+                          <span className="text-sm font-medium text-gray-800">{selectedStudent.parentName}</span>
+                        </div>
+                      )}
+                      {selectedStudent.parentPhone && (
+                        <div className="flex items-center gap-3">
+                          <FiPhone className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm text-gray-600">SĐT:</span>
+                          <span className="text-sm font-medium text-gray-800">{selectedStudent.parentPhone}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Notes */}
                 {selectedStudent.notes && (
                   <div>
                     <h3 className="text-lg font-bold text-gray-800 mb-3">Ghi chú</h3>
@@ -861,11 +977,15 @@ const TeacherStudents = () => {
                 )}
               </div>
 
-              {/* Actions */}
               <div className="flex gap-3 mt-8 pt-6 border-t">
-                <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors">
-                  <FiEdit2 className="w-4 h-4" />
-                  Chỉnh sửa
+                <button
+                  onClick={() => {
+                    handleDeleteStudent(selectedStudent._id);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 rounded-xl font-semibold text-red-600 transition-colors"
+                >
+                  <FiTrash2 className="w-4 h-4" />
+                  Xóa
                 </button>
                 <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all">
                   <FiMail className="w-4 h-4" />

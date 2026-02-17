@@ -1,4 +1,5 @@
 import Home from "../pages/Home/index";
+import About from "../pages/About/index";
 import MapPage from "../pages/Map/index";
 import LoginPage from "../pages/account/LoginPage";
 import RegisterPage from "../pages/account/RegisterPage";
@@ -36,6 +37,11 @@ const publicRoutes = [
   {
     path: "/register",
     component: RegisterPage,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/about",
+    component: About,
     layout: DefaultLayout,
   },
 ];
