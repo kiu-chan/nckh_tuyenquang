@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+const API_URL = '/api/auth';
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -15,92 +17,100 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('authToken');
-    const userInfo = localStorage.getItem('userInfo');
-    
-    if (token && userInfo) {
-      try {
-        setCurrentUser(JSON.parse(userInfo));
-      } catch (error) {
-        console.error('Error parsing user info:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userInfo');
+    const verifyToken = async () => {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        setLoading(false);
+        return;
       }
-    }
-    setLoading(false);
+
+      try {
+        const res = await fetch(`${API_URL}/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+          setCurrentUser(data.user);
+        } else {
+          localStorage.removeItem('authToken');
+        }
+      } catch (error) {
+        console.error('Error verifying token:', error);
+        localStorage.removeItem('authToken');
+      }
+      setLoading(false);
+    };
+
+    verifyToken();
   }, []);
 
-  const login = async (username, password) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+  const login = async (email, password) => {
+    const res = await fetch(`${API_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
 
-    // Mock users database
-    const users = [
-      {
-        username: 'admin',
-        password: 'admin123',
-        role: 'admin',
-        name: 'Administrator',
-        email: 'admin@notebooklm.vn'
-      },
-      {
-        username: 'teacher',
-        password: 'teacher123',
-        role: 'teacher',
-        name: 'Nguyễn Văn Giáo',
-        email: 'giaovien@notebooklm.vn'
-      },
-      {
-        username: 'student',
-        password: 'student123',
-        role: 'student',
-        name: 'Trần Thị Học',
-        email: 'hocsinh@notebooklm.vn'
-      }
-    ];
+    const data = await res.json();
 
-    const user = users.find(u => u.username === username && u.password === password);
-
-    if (user) {
-      const userInfo = {
-        username: user.username,
-        name: user.name,
-        role: user.role,
-        email: user.email
-      };
-      
-      localStorage.setItem('authToken', 'fake-auth-token');
-      localStorage.setItem('userInfo', JSON.stringify(userInfo));
-      setCurrentUser(userInfo);
-      
-      return { success: true, user: userInfo };
-    } else {
-      throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác');
+    if (!res.ok) {
+      throw new Error(data.message || 'Đăng nhập thất bại');
     }
+
+    localStorage.setItem('authToken', data.token);
+    setCurrentUser(data.user);
+    return { success: true, user: data.user };
   };
 
   const register = async (userData) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const res = await fetch(`${API_URL}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        password: userData.password,
+        name: userData.fullName,
+        email: userData.email,
+      }),
+    });
 
-    const userInfo = {
-      username: userData.username,
-      name: userData.fullName,
-      role: userData.role,
-      email: userData.email
-    };
-    
-    localStorage.setItem('authToken', 'fake-auth-token');
-    localStorage.setItem('userInfo', JSON.stringify(userInfo));
-    setCurrentUser(userInfo);
-    
-    return { success: true, user: userInfo };
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Đăng ký thất bại');
+    }
+
+    localStorage.setItem('authToken', data.token);
+    setCurrentUser(data.user);
+    return { success: true, user: data.user };
+  };
+
+  const googleLogin = async (credential) => {
+    const res = await fetch(`${API_URL}/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential }),
+    });
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error('Đăng nhập Google thất bại. Vui lòng thử lại.');
+    }
+
+    if (!res.ok) {
+      throw new Error(data.message || 'Đăng nhập Google thất bại');
+    }
+
+    localStorage.setItem('authToken', data.token);
+    setCurrentUser(data.user);
+    return { success: true, user: data.user };
   };
 
   const logout = async () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('userInfo');
     setCurrentUser(null);
   };
 
@@ -108,8 +118,9 @@ export const AuthProvider = ({ children }) => {
     currentUser,
     login,
     register,
+    googleLogin,
     logout,
-    loading
+    loading,
   };
 
   return (
