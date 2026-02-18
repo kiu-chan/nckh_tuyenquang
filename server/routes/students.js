@@ -1,5 +1,4 @@
 import express from 'express';
-import crypto from 'crypto';
 import Student from '../models/Student.js';
 import User from '../models/User.js';
 import protect from '../middleware/auth.js';
@@ -119,7 +118,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/students - Thêm học sinh mới (liên kết hoặc tạo tài khoản User)
 router.post('/', async (req, res) => {
   try {
-    const { email, name, ...rest } = req.body;
+    const { email, name, password, ...rest } = req.body;
 
     if (!email) {
       return res.status(400).json({ message: 'Email là bắt buộc' });
@@ -130,11 +129,13 @@ router.post('/', async (req, res) => {
     let isNewAccount = false;
 
     if (!user) {
-      // Tạo tài khoản mới với mật khẩu ngẫu nhiên
-      const randomPassword = crypto.randomBytes(8).toString('hex');
+      // Tạo tài khoản mới với mật khẩu do giáo viên cung cấp
+      if (!password || password.length < 6) {
+        return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 6 ký tự' });
+      }
       user = await User.create({
         email: email.toLowerCase(),
-        password: randomPassword,
+        password,
         name,
         role: 'student',
       });
