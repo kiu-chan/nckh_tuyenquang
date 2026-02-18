@@ -26,10 +26,10 @@ import {
 } from 'react-icons/io5';
 import AIExamCreator from '../../../components/AIExamCreator';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = '/api';
 
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('authToken');
   return {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,

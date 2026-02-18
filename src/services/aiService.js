@@ -260,15 +260,15 @@ export const summarizeDocument = async ({
     const summaryTypeMap = {
       list: {
         name: 'Danh sách có số thứ tự',
-        format: 'Sử dụng số thứ tự (1., 2., 3...) và phân cấp rõ ràng với gạch đầu dòng (-) cho các mục con'
+        format: 'Sử dụng thẻ <ol> và <li> với phân cấp rõ ràng bằng <ul> lồng nhau cho các mục con'
       },
       table: {
         name: 'Bảng',
-        format: 'Trình bày dưới dạng bảng văn bản với ký tự ASCII (┌─┬─┐ │ │ ├─┼─┤ └─┴─┘), có cột và hàng rõ ràng'
+        format: 'Trình bày dưới dạng thẻ <table> với <thead>, <tbody>, <tr>, <th>, <td>. Bảng phải có viền và header rõ ràng'
       },
       bullets: {
         name: 'Gạch đầu dòng',
-        format: 'Sử dụng dấu gạch đầu dòng (-, •, ◦) để tổ chức thông tin theo cấp bậc'
+        format: 'Sử dụng thẻ <ul> và <li> để tổ chức thông tin theo cấp bậc với <ul> lồng nhau'
       },
       framework: {
         name: 'Khung sườn bài giảng',
@@ -276,7 +276,8 @@ export const summarizeDocument = async ({
 I. MỤC TIÊU BÀI HỌC (Kiến thức, Kỹ năng, Thái độ)
 II. CHUẨN BỊ (Giáo viên, Học sinh)
 III. TIẾN TRÌNH DẠY HỌC (Hoạt động khởi động, Hình thành kiến thức, Luyện tập, Vận dụng, Tổng kết)
-IV. HƯỚNG DẪN VỀ NHÀ`
+IV. HƯỚNG DẪN VỀ NHÀ
+Sử dụng các thẻ <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>, <p> để cấu trúc nội dung`
       }
     };
 
@@ -292,6 +293,10 @@ NỘI DUNG TÀI LIỆU:
 ${content}
 
 ${additionalInstructions ? `\nYÊU CẦU BỔ SUNG:\n${additionalInstructions}\n` : ''}
+
+ĐỊNH DẠNG TRẢ VỀ: HTML
+Trả về nội dung dưới dạng HTML thuần túy (KHÔNG bọc trong \`\`\`html, KHÔNG thêm <!DOCTYPE>, <html>, <head>, <body>).
+Chỉ trả về các thẻ HTML nội dung bên trong như <h2>, <h3>, <p>, <ul>, <ol>, <li>, <table>, <strong>, <em>, <br>.
 
 YÊU CẦU CHUNG:
 1. ${typeInfo.format}
@@ -309,16 +314,19 @@ LƯU Ý ĐẶC BIỆT CHO KHUNG SƯỜN GIÁO ÁN:
 - Liên hệ với thực tế cuộc sống
 ` : ''}
 
-Hãy trả về nội dung tóm tắt theo định dạng yêu cầu, không thêm bất kỳ giải thích nào khác.
+CHÚ Ý: Chỉ trả về HTML thuần túy, không bọc trong markdown code block, không thêm giải thích.
 `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
+    let text = response.text();
+
+    // Loại bỏ markdown code block nếu AI vẫn wrap
+    text = text.replace(/```html\n?/g, '').replace(/```\n?/g, '').trim();
 
     return {
       success: true,
-      content: text.trim()
+      content: text
     };
   } catch (error) {
     console.error('Error summarizing document:', error);

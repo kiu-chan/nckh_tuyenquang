@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   FiUpload,
   FiFile,
@@ -8,7 +8,8 @@ import {
   FiCheck,
   FiAlertCircle,
   FiRefreshCw,
-  FiLoader
+  FiLoader,
+  FiTrash2
 } from 'react-icons/fi';
 import {
   IoDocumentTextOutline,
@@ -18,18 +19,40 @@ import {
   IoBookOutline,
   IoCheckmarkCircleOutline
 } from 'react-icons/io5';
+import DOMPurify from 'dompurify';
+import html2pdf from 'html2pdf.js';
 import { extractTextFromFile, summarizeDocument } from '../../../services/aiService';
+
+const API = '/api';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+};
 
 const TeacherNotebook = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parsingFile, setParsingFile] = useState(false);
-  const [activeTab, setActiveTab] = useState('upload'); // upload, result
-  const [summaryType, setSummaryType] = useState('list'); // list, table, bullets, framework
+  const [activeTab, setActiveTab] = useState('upload');
+  const [summaryType, setSummaryType] = useState('list');
   const [generatedContent, setGeneratedContent] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
   const [extractedText, setExtractedText] = useState('');
+
+  const [recentFiles, setRecentFiles] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(true);
+
+  const summaryTypeNames = {
+    list: 'Danh sách',
+    table: 'Bảng',
+    bullets: 'Gạch đầu dòng',
+    framework: 'Khung sườn',
+  };
 
   const summaryTypes = [
     {
@@ -62,32 +85,21 @@ const TeacherNotebook = () => {
     },
   ];
 
-  const recentFiles = [
-    {
-      id: 1,
-      name: 'Bài 5 - Hàm số bậc nhất.docx',
-      type: 'docx',
-      date: '20/01/2025',
-      size: '2.4 MB',
-      summaryType: 'Danh sách'
-    },
-    {
-      id: 2,
-      name: 'Chương 3 - Đạo hàm.pdf',
-      type: 'pdf',
-      date: '18/01/2025',
-      size: '5.1 MB',
-      summaryType: 'Bảng'
-    },
-    {
-      id: 3,
-      name: 'Giảng án - Bất phương trình.txt',
-      type: 'txt',
-      date: '15/01/2025',
-      size: '156 KB',
-      summaryType: 'Khung sườn'
-    },
-  ];
+  const fetchRecentFiles = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/notebooks?limit=10`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) setRecentFiles(data.notebooks);
+    } catch (err) {
+      console.error('Error fetching notebooks:', err);
+    } finally {
+      setLoadingRecent(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRecentFiles();
+  }, [fetchRecentFiles]);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
@@ -112,7 +124,6 @@ const TeacherNotebook = () => {
     setGeneratedContent('');
 
     try {
-      // Trích xuất text từ file
       const text = await extractTextFromFile(file);
 
       if (!text || text.trim().length < 100) {
@@ -154,12 +165,30 @@ const TeacherNotebook = () => {
       const result = await summarizeDocument({
         content: extractedText,
         summaryType,
-        subject: '', // Có thể thêm trường để người dùng chọn môn học
+        subject: '',
         additionalInstructions: ''
       });
 
       if (result.success) {
         setGeneratedContent(result.content);
+
+        // Lưu vào database
+        try {
+          await fetch(`${API}/notebooks`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              fileName: selectedFile.name,
+              fileType: selectedFile.name.split('.').pop(),
+              fileSize: selectedFile.size,
+              summaryType,
+              content: result.content,
+            }),
+          });
+          fetchRecentFiles();
+        } catch (saveErr) {
+          console.error('Error saving notebook:', saveErr);
+        }
       } else {
         setError(result.error || 'Không thể tóm tắt tài liệu');
         setGeneratedContent('');
@@ -173,6 +202,34 @@ const TeacherNotebook = () => {
     }
   };
 
+  const handleViewNotebook = async (id) => {
+    try {
+      const res = await fetch(`${API}/notebooks/${id}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) {
+        setGeneratedContent(data.notebook.content);
+        setSummaryType(data.notebook.summaryType);
+        setActiveTab('result');
+      }
+    } catch (err) {
+      console.error('Error loading notebook:', err);
+    }
+  };
+
+  const handleDeleteNotebook = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tóm tắt này?')) return;
+    try {
+      const res = await fetch(`${API}/notebooks/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) fetchRecentFiles();
+    } catch (err) {
+      console.error('Error deleting notebook:', err);
+    }
+  };
+
   const copyToClipboard = () => {
     navigator.clipboard.writeText(generatedContent);
     setCopied(true);
@@ -180,13 +237,54 @@ const TeacherNotebook = () => {
   };
 
   const downloadContent = () => {
-    const element = document.createElement('a');
-    const file = new Blob([generatedContent], { type: 'text/plain' });
-    element.href = URL.createObjectURL(file);
-    element.download = `tom-tat-${summaryType}-${Date.now()}.txt`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <style>
+        body { font-family: 'Times New Roman', serif; font-size: 14px; color: #1f2937; line-height: 1.6; }
+        h2 { font-size: 18px; font-weight: bold; margin: 16px 0 8px; color: #111827; }
+        h3 { font-size: 16px; font-weight: 600; margin: 12px 0 6px; color: #374151; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { border: 1px solid #9ca3af; padding: 8px 10px; text-align: left; vertical-align: top; font-size: 13px; }
+        th { background-color: #ecfdf5; font-weight: 600; }
+        ul, ol { padding-left: 24px; margin: 8px 0; }
+        li { margin-bottom: 4px; }
+        p { margin: 6px 0; }
+      </style>
+      ${sanitizeHTML(generatedContent)}
+    `;
+
+    const fileName = selectedFile
+      ? `tom-tat-${selectedFile.name.replace(/\.[^.]+$/, '')}`
+      : `tom-tat-${summaryType}-${Date.now()}`;
+
+    html2pdf()
+      .set({
+        margin: [15, 15, 15, 15],
+        filename: `${fileName}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(container)
+      .save();
+  };
+
+  const formatDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('vi-VN');
+  };
+
+  const sanitizeHTML = (html) => {
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: [
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'p', 'br', 'hr',
+        'ul', 'ol', 'li',
+        'table', 'thead', 'tbody', 'tr', 'th', 'td',
+        'strong', 'b', 'em', 'i', 'u', 'mark',
+        'span', 'div', 'blockquote', 'pre', 'code',
+      ],
+      ALLOWED_ATTR: ['class', 'style', 'colspan', 'rowspan'],
+    });
   };
 
   return (
@@ -205,7 +303,7 @@ const TeacherNotebook = () => {
           {/* Upload Area */}
           <div className="bg-white rounded-xl p-6 border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">1. Tải tài liệu lên</h2>
-            
+
             {!selectedFile ? (
               <div
                 onDrop={handleDrop}
@@ -420,11 +518,10 @@ const TeacherNotebook = () => {
                   <p className="text-sm text-gray-500 mt-2">AI đang xử lý, vui lòng đợi</p>
                 </div>
               ) : generatedContent ? (
-                <div className="prose max-w-none">
-                  <pre className="bg-gray-50 rounded-xl p-6 text-sm text-gray-800 whitespace-pre-wrap font-mono leading-relaxed overflow-x-auto">
-                    {generatedContent}
-                  </pre>
-                </div>
+                <div
+                  className="notebook-content bg-gray-50 rounded-xl p-6 overflow-x-auto prose prose-sm max-w-none prose-headings:text-gray-800 prose-p:text-gray-700 prose-strong:text-gray-800 prose-li:text-gray-700 prose-th:bg-emerald-50 prose-th:text-gray-800 prose-td:text-gray-700"
+                  dangerouslySetInnerHTML={{ __html: sanitizeHTML(generatedContent) }}
+                />
               ) : (
                 <div className="text-center py-12">
                   <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -442,31 +539,54 @@ const TeacherNotebook = () => {
           {/* Recent Files */}
           <div className="bg-white rounded-xl p-6 border border-gray-100">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Tài liệu gần đây</h2>
-            <div className="space-y-3">
-              {recentFiles.map((file) => (
-                <div
-                  key={file.id}
-                  className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <FiFile className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 truncate">{file.name}</p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                      <span>{file.date}</span>
-                      <span>•</span>
-                      <span>{file.size}</span>
-                      <span>•</span>
-                      <span className="text-emerald-600">{file.summaryType}</span>
+            {loadingRecent ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : recentFiles.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-400 text-sm">Chưa có tóm tắt nào</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentFiles.map((file) => (
+                  <div
+                    key={file._id}
+                    className="flex items-center gap-4 p-4 border border-gray-100 rounded-xl hover:shadow-md transition-shadow"
+                  >
+                    <div className="w-12 h-12 bg-emerald-50 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FiFile className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 truncate">{file.fileName}</p>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <span>{formatDate(file.createdAt)}</span>
+                        <span>•</span>
+                        <span>{file.formattedSize}</span>
+                        <span>•</span>
+                        <span className="text-emerald-600">
+                          {summaryTypeNames[file.summaryType] || file.summaryType}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewNotebook(file._id)}
+                        className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+                      >
+                        Xem lại
+                      </button>
+                      <button
+                        onClick={() => handleDeleteNotebook(file._id)}
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <FiTrash2 className="w-4 h-4 text-gray-400 hover:text-red-500" />
+                      </button>
                     </div>
                   </div>
-                  <button className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors">
-                    Xem lại
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

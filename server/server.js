@@ -1,12 +1,20 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/students.js';
 import gameRoutes from './routes/games.js';
 import examRoutes from './routes/exams.js';
+import documentRoutes from './routes/documents.js';
+import notebookRoutes from './routes/notebooks.js';
+import statisticsRoutes from './routes/statistics.js';
 import User from './models/User.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: './server/.env' });
 
@@ -22,6 +30,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/exams', examRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/notebooks', notebookRoutes);
+app.use('/api/statistics', statisticsRoutes);
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Seed demo users
 const seedUsers = async () => {

@@ -1,153 +1,243 @@
-import React, { useState } from 'react';
-import { 
-  FiUpload,
+import { useState, useEffect, useCallback, useRef } from 'react';
+import {
   FiFile,
   FiFolder,
   FiSearch,
-  FiMoreVertical,
-  FiEdit2,
   FiTrash2,
   FiDownload,
   FiShare2,
-  FiEye,
   FiPlus,
-  FiFilter,
   FiGrid,
   FiList,
   FiClock,
   FiStar,
   FiX
 } from 'react-icons/fi';
-import { 
+import {
   IoDocumentTextOutline,
   IoFolderOutline,
   IoCloudUploadOutline,
-  IoCalendarOutline,
-  IoPersonOutline
 } from 'react-icons/io5';
 
+const API = '/api';
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const getAuthHeadersMultipart = () => {
+  const token = localStorage.getItem('authToken');
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 const TeacherDocuments = () => {
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
+  const [viewMode, setViewMode] = useState('grid');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showContextMenu, setShowContextMenu] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
 
-  const categories = [
-    { id: 'all', name: 'Tất cả', icon: FiFolder, count: 24, color: 'gray' },
-    { id: 'lesson-plans', name: 'Giảng án', icon: IoDocumentTextOutline, count: 8, color: 'blue' },
-    { id: 'presentations', name: 'Bài giảng', icon: IoDocumentTextOutline, count: 6, color: 'green' },
-    { id: 'worksheets', name: 'Bài tập', icon: IoDocumentTextOutline, count: 5, color: 'purple' },
-    { id: 'exams', name: 'Đề thi', icon: IoDocumentTextOutline, count: 3, color: 'orange' },
-    { id: 'references', name: 'Tài liệu tham khảo', icon: IoDocumentTextOutline, count: 2, color: 'pink' },
+  const [documents, setDocuments] = useState([]);
+  const [statsData, setStatsData] = useState({
+    total: 0,
+    totalSize: '0 B',
+    totalShared: 0,
+    favorites: 0,
+    categories: {},
+  });
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadCategory, setUploadCategory] = useState('references');
+  const [uploadName, setUploadName] = useState('');
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const categoriesList = [
+    { id: 'lesson-plans', name: 'Giảng án' },
+    { id: 'presentations', name: 'Bài giảng' },
+    { id: 'worksheets', name: 'Bài tập' },
+    { id: 'exams', name: 'Đề thi' },
+    { id: 'references', name: 'Tài liệu tham khảo' },
   ];
 
-  const documents = [
-    {
-      id: 1,
-      name: 'Giảng án Toán 10 - Học kỳ 1',
-      type: 'docx',
-      category: 'lesson-plans',
-      size: '2.4 MB',
-      date: '20/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: true,
-      sharedWith: 5
-    },
-    {
-      id: 2,
-      name: 'Bài giảng - Hàm số bậc nhất',
-      type: 'pptx',
-      category: 'presentations',
-      size: '5.8 MB',
-      date: '19/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: false,
-      sharedWith: 12
-    },
-    {
-      id: 3,
-      name: 'Đề thi giữa kỳ I - Toán 10',
-      type: 'pdf',
-      category: 'exams',
-      size: '1.2 MB',
-      date: '18/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: true,
-      sharedWith: 3
-    },
-    {
-      id: 4,
-      name: 'Bài tập về đạo hàm',
-      type: 'docx',
-      category: 'worksheets',
-      size: '856 KB',
-      date: '17/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: false,
-      sharedWith: 8
-    },
-    {
-      id: 5,
-      name: 'Tài liệu bồi dưỡng HSG',
-      type: 'pdf',
-      category: 'references',
-      size: '12.5 MB',
-      date: '15/01/2025',
-      author: 'Cô Trần Thị B',
-      thumbnail: null,
-      isFavorite: false,
-      sharedWith: 0
-    },
-    {
-      id: 6,
-      name: 'Giảng án Chương 3 - Đạo hàm',
-      type: 'docx',
-      category: 'lesson-plans',
-      size: '3.1 MB',
-      date: '14/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: true,
-      sharedWith: 4
-    },
-    {
-      id: 7,
-      name: 'Bài giảng Bất phương trình',
-      type: 'pptx',
-      category: 'presentations',
-      size: '4.2 MB',
-      date: '12/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: false,
-      sharedWith: 15
-    },
-    {
-      id: 8,
-      name: 'Đề kiểm tra 15 phút',
-      type: 'pdf',
-      category: 'exams',
-      size: '654 KB',
-      date: '10/01/2025',
-      author: 'Thầy Nguyễn Văn A',
-      thumbnail: null,
-      isFavorite: false,
-      sharedWith: 2
-    },
+  const categories = [
+    { id: 'all', name: 'Tất cả', icon: FiFolder, color: 'gray' },
+    { id: 'lesson-plans', name: 'Giảng án', icon: IoDocumentTextOutline, color: 'blue' },
+    { id: 'presentations', name: 'Bài giảng', icon: IoDocumentTextOutline, color: 'green' },
+    { id: 'worksheets', name: 'Bài tập', icon: IoDocumentTextOutline, color: 'purple' },
+    { id: 'exams', name: 'Đề thi', icon: IoDocumentTextOutline, color: 'orange' },
+    { id: 'references', name: 'Tài liệu tham khảo', icon: IoDocumentTextOutline, color: 'pink' },
   ];
+
+  const fetchDocuments = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (selectedCategory !== 'all') params.append('category', selectedCategory);
+      if (searchQuery) params.append('search', searchQuery);
+
+      const res = await fetch(`${API}/documents?${params}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) setDocuments(data.documents);
+    } catch (err) {
+      console.error('Error fetching documents:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCategory, searchQuery]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/documents/stats`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) setStatsData(data.stats);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, [fetchDocuments]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const handleUpload = async () => {
+    if (!uploadFile) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', uploadFile);
+      formData.append('category', uploadCategory);
+      if (uploadName) formData.append('name', uploadName);
+
+      const res = await fetch(`${API}/documents/upload`, {
+        method: 'POST',
+        headers: getAuthHeadersMultipart(),
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setUploadName('');
+      setUploadCategory('references');
+      fetchDocuments();
+      fetchStats();
+    } catch (err) {
+      alert('Lỗi tải lên: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa tài liệu này?')) return;
+    try {
+      const res = await fetch(`${API}/documents/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchDocuments();
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Error deleting document:', err);
+    }
+  };
+
+  const toggleFavorite = async (id) => {
+    try {
+      const res = await fetch(`${API}/documents/${id}/favorite`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDocuments((prev) =>
+          prev.map((d) => (d._id === id ? { ...d, isFavorite: data.document.isFavorite } : d))
+        );
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    }
+  };
+
+  const handleDownload = async (id) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`${API}/documents/${id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const contentDisposition = res.headers.get('Content-Disposition');
+      let filename = 'download';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?(.+)"?/);
+        if (match) filename = match[1];
+      }
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading:', err);
+    }
+  };
+
+  const handleFileSelect = (docId) => {
+    setSelectedFiles((prev) =>
+      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
+    );
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setUploadFile(e.dataTransfer.files[0]);
+      setUploadName(e.dataTransfer.files[0].name.replace(/\.[^.]+$/, ''));
+    }
+  };
+
+  const handleFileInputChange = (e) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadFile(e.target.files[0]);
+      setUploadName(e.target.files[0].name.replace(/\.[^.]+$/, ''));
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('vi-VN');
+  };
 
   const stats = [
-    { label: 'Tổng tài liệu', value: '24', icon: IoDocumentTextOutline, color: 'blue' },
-    { label: 'Dung lượng', value: '156 MB', icon: IoCloudUploadOutline, color: 'green' },
-    { label: 'Chia sẻ', value: '49', icon: FiShare2, color: 'purple' },
-    { label: 'Yêu thích', value: '8', icon: FiStar, color: 'yellow' },
+    { label: 'Tổng tài liệu', value: statsData.total, icon: IoDocumentTextOutline, color: 'blue' },
+    { label: 'Dung lượng', value: statsData.totalSize, icon: IoCloudUploadOutline, color: 'green' },
+    { label: 'Chia sẻ', value: statsData.totalShared, icon: FiShare2, color: 'purple' },
+    { label: 'Yêu thích', value: statsData.favorites, icon: FiStar, color: 'yellow' },
   ];
+
+  const getCategoryCount = (catId) => {
+    if (catId === 'all') return statsData.total;
+    return statsData.categories?.[catId] || 0;
+  };
 
   const getFileIcon = (type) => {
     switch (type) {
@@ -167,31 +257,13 @@ const TeacherDocuments = () => {
     }
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesCategory = selectedCategory === 'all' || doc.category === selectedCategory;
-    const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
-
-  const toggleFavorite = (docId) => {
-    // Handle favorite toggle
-    console.log('Toggle favorite:', docId);
-  };
-
-  const handleContextMenu = (e, docId) => {
-    e.preventDefault();
-    setShowContextMenu(docId);
-  };
-
-  const handleFileSelect = (docId) => {
-    setSelectedFiles(prev => {
-      if (prev.includes(docId)) {
-        return prev.filter(id => id !== docId);
-      } else {
-        return [...prev, docId];
-      }
-    });
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -233,7 +305,6 @@ const TeacherDocuments = () => {
       {/* Filters & Search */}
       <div className="bg-white rounded-xl p-6 border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1">
             <div className="relative">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -247,7 +318,6 @@ const TeacherDocuments = () => {
             </div>
           </div>
 
-          {/* View Mode */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setViewMode('grid')}
@@ -289,10 +359,12 @@ const TeacherDocuments = () => {
               >
                 <Icon className="w-4 h-4" />
                 <span>{category.name}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  isActive ? 'bg-emerald-100' : 'bg-gray-200'
-                }`}>
-                  {category.count}
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full ${
+                    isActive ? 'bg-emerald-100' : 'bg-gray-200'
+                  }`}
+                >
+                  {getCategoryCount(category.id)}
                 </span>
               </button>
             );
@@ -303,15 +375,14 @@ const TeacherDocuments = () => {
       {/* Documents Grid/List */}
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredDocuments.map((doc) => {
+          {documents.map((doc) => {
             const fileIcon = getFileIcon(doc.type);
             const Icon = fileIcon.icon;
-            const isSelected = selectedFiles.includes(doc.id);
+            const isSelected = selectedFiles.includes(doc._id);
 
             return (
               <div
-                key={doc.id}
-                onContextMenu={(e) => handleContextMenu(e, doc.id)}
+                key={doc._id}
                 className={`bg-white rounded-xl border-2 transition-all cursor-pointer group ${
                   isSelected
                     ? 'border-emerald-500 shadow-lg'
@@ -321,18 +392,21 @@ const TeacherDocuments = () => {
                 {/* Thumbnail */}
                 <div className={`relative h-32 ${fileIcon.bg} rounded-t-xl flex items-center justify-center`}>
                   <Icon className={`w-12 h-12 ${fileIcon.color}`} />
-                  
+
                   {/* Actions Overlay */}
                   <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all rounded-t-xl flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <div className="flex gap-2">
-                      <button className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors">
-                        <FiEye className="w-4 h-4 text-gray-700" />
-                      </button>
-                      <button className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors">
+                      <button
+                        onClick={() => handleDownload(doc._id)}
+                        className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors"
+                      >
                         <FiDownload className="w-4 h-4 text-gray-700" />
                       </button>
-                      <button className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors">
-                        <FiShare2 className="w-4 h-4 text-gray-700" />
+                      <button
+                        onClick={() => handleDelete(doc._id)}
+                        className="p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <FiTrash2 className="w-4 h-4 text-red-500" />
                       </button>
                     </div>
                   </div>
@@ -342,17 +416,21 @@ const TeacherDocuments = () => {
                     <input
                       type="checkbox"
                       checked={isSelected}
-                      onChange={() => handleFileSelect(doc.id)}
+                      onChange={() => handleFileSelect(doc._id)}
                       className="w-5 h-5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
                     />
                   </div>
 
                   {/* Favorite */}
                   <button
-                    onClick={() => toggleFavorite(doc.id)}
+                    onClick={() => toggleFavorite(doc._id)}
                     className="absolute top-2 right-2 p-2 bg-white rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <FiStar className={`w-4 h-4 ${doc.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'}`} />
+                    <FiStar
+                      className={`w-4 h-4 ${
+                        doc.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'
+                      }`}
+                    />
                   </button>
                 </div>
 
@@ -362,12 +440,12 @@ const TeacherDocuments = () => {
                     {doc.name}
                   </h3>
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                    <span>{doc.size}</span>
+                    <span>{doc.formattedSize}</span>
                     <span className="uppercase font-medium">{doc.type}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <FiClock className="w-3 h-3" />
-                    <span>{doc.date}</span>
+                    <span>{formatDate(doc.createdAt)}</span>
                   </div>
                   {doc.sharedWith > 0 && (
                     <div className="flex items-center gap-1 mt-2 text-xs text-emerald-600">
@@ -391,27 +469,39 @@ const TeacherDocuments = () => {
                     className="w-5 h-5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tên tài liệu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Loại</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Kích thước</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Ngày tạo</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Chia sẻ</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thao tác</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Tên tài liệu
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Loại
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Kích thước
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Ngày tạo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">
+                  Chia sẻ
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">
+                  Thao tác
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredDocuments.map((doc) => {
+              {documents.map((doc) => {
                 const fileIcon = getFileIcon(doc.type);
                 const Icon = fileIcon.icon;
-                const isSelected = selectedFiles.includes(doc.id);
+                const isSelected = selectedFiles.includes(doc._id);
 
                 return (
-                  <tr key={doc.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-emerald-50' : ''}`}>
+                  <tr key={doc._id} className={`hover:bg-gray-50 ${isSelected ? 'bg-emerald-50' : ''}`}>
                     <td className="px-6 py-4">
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => handleFileSelect(doc.id)}
+                        onChange={() => handleFileSelect(doc._id)}
                         className="w-5 h-5 text-emerald-600 rounded border-gray-300 focus:ring-emerald-500"
                       />
                     </td>
@@ -422,7 +512,6 @@ const TeacherDocuments = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-800 truncate">{doc.name}</p>
-                          <p className="text-xs text-gray-500">{doc.author}</p>
                         </div>
                         {doc.isFavorite && (
                           <FiStar className="w-4 h-4 fill-yellow-400 text-yellow-400" />
@@ -434,8 +523,8 @@ const TeacherDocuments = () => {
                         {doc.type}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{doc.size}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{doc.date}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{doc.formattedSize}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(doc.createdAt)}</td>
                     <td className="px-6 py-4">
                       {doc.sharedWith > 0 ? (
                         <span className="text-sm text-emerald-600">{doc.sharedWith} người</span>
@@ -445,17 +534,27 @@ const TeacherDocuments = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <FiEye className="w-4 h-4 text-gray-600" />
-                        </button>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <button
+                          onClick={() => handleDownload(doc._id)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
                           <FiDownload className="w-4 h-4 text-gray-600" />
                         </button>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <FiShare2 className="w-4 h-4 text-gray-600" />
+                        <button
+                          onClick={() => toggleFavorite(doc._id)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <FiStar
+                            className={`w-4 h-4 ${
+                              doc.isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-600'
+                            }`}
+                          />
                         </button>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <FiMoreVertical className="w-4 h-4 text-gray-600" />
+                        <button
+                          onClick={() => handleDelete(doc._id)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                          <FiTrash2 className="w-4 h-4 text-red-500" />
                         </button>
                       </div>
                     </td>
@@ -468,21 +567,18 @@ const TeacherDocuments = () => {
       )}
 
       {/* Empty State */}
-      {filteredDocuments.length === 0 && (
+      {documents.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
             <IoFolderOutline className="w-10 h-10 text-gray-400" />
           </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Không tìm thấy tài liệu</h3>
-          <p className="text-gray-500 mb-6">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          <p className="text-gray-500 mb-6">Thử thay đổi bộ lọc hoặc tải lên tài liệu mới</p>
           <button
-            onClick={() => {
-              setSearchQuery('');
-              setSelectedCategory('all');
-            }}
-            className="px-6 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
+            onClick={() => setShowUploadModal(true)}
+            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
           >
-            Xóa bộ lọc
+            Tải lên tài liệu
           </button>
         </div>
       )}
@@ -494,7 +590,12 @@ const TeacherDocuments = () => {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-800">Tải tài liệu lên</h2>
               <button
-                onClick={() => setShowUploadModal(false)}
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadFile(null);
+                  setUploadName('');
+                  setUploadCategory('references');
+                }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <FiX className="w-6 h-6 text-gray-600" />
@@ -502,45 +603,113 @@ const TeacherDocuments = () => {
             </div>
 
             {/* Upload Area */}
-            <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-emerald-500 transition-colors mb-6">
-              <div className="w-20 h-20 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <IoCloudUploadOutline className="w-10 h-10 text-emerald-600" />
-              </div>
-              <p className="text-gray-700 font-medium mb-2">Kéo thả file vào đây</p>
-              <p className="text-sm text-gray-500 mb-4">hoặc</p>
-              <button className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors">
-                Chọn file từ máy
-              </button>
-              <p className="text-xs text-gray-400 mt-4">
-                Hỗ trợ: DOC, DOCX, PDF, PPT, PPTX, XLS, XLSX (Tối đa 50MB)
-              </p>
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-xl p-12 text-center transition-colors mb-6 ${
+                dragActive
+                  ? 'border-emerald-500 bg-emerald-50'
+                  : 'border-gray-300 hover:border-emerald-500'
+              }`}
+            >
+              {uploadFile ? (
+                <div>
+                  <div className="w-16 h-16 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-3">
+                    <FiFile className="w-8 h-8 text-emerald-600" />
+                  </div>
+                  <p className="text-gray-800 font-medium mb-1">{uploadFile.name}</p>
+                  <p className="text-sm text-gray-500 mb-3">
+                    {(uploadFile.size / 1048576).toFixed(1)} MB
+                  </p>
+                  <button
+                    onClick={() => setUploadFile(null)}
+                    className="text-sm text-red-500 hover:text-red-600"
+                  >
+                    Chọn file khác
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="w-20 h-20 bg-emerald-50 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <IoCloudUploadOutline className="w-10 h-10 text-emerald-600" />
+                  </div>
+                  <p className="text-gray-700 font-medium mb-2">Kéo thả file vào đây</p>
+                  <p className="text-sm text-gray-500 mb-4">hoặc</p>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-6 py-3 bg-emerald-500 text-white rounded-xl font-semibold hover:bg-emerald-600 transition-colors"
+                  >
+                    Chọn file từ máy
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx,.txt"
+                    onChange={handleFileInputChange}
+                  />
+                  <p className="text-xs text-gray-400 mt-4">
+                    Hỗ trợ: DOC, DOCX, PDF, PPT, PPTX, XLS, XLSX (Tối đa 50MB)
+                  </p>
+                </>
+              )}
             </div>
+
+            {/* Name */}
+            {uploadFile && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tên tài liệu
+                </label>
+                <input
+                  type="text"
+                  value={uploadName}
+                  onChange={(e) => setUploadName(e.target.value)}
+                  placeholder="Nhập tên tài liệu"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            )}
 
             {/* Category Selection */}
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Danh mục
-              </label>
-              <select className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                <option>Chọn danh mục</option>
-                <option>Giảng án</option>
-                <option>Bài giảng</option>
-                <option>Bài tập</option>
-                <option>Đề thi</option>
-                <option>Tài liệu tham khảo</option>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục</label>
+              <select
+                value={uploadCategory}
+                onChange={(e) => setUploadCategory(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {categoriesList.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
               </select>
             </div>
 
             {/* Actions */}
             <div className="flex gap-3">
               <button
-                onClick={() => setShowUploadModal(false)}
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadFile(null);
+                  setUploadName('');
+                  setUploadCategory('references');
+                }}
                 className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
               >
                 Hủy
               </button>
-              <button className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all">
-                Tải lên
+              <button
+                onClick={handleUpload}
+                disabled={!uploadFile || uploading}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50"
+              >
+                {uploading ? 'Đang tải lên...' : 'Tải lên'}
               </button>
             </div>
           </div>
