@@ -11,6 +11,8 @@ import examRoutes from './routes/exams.js';
 import documentRoutes from './routes/documents.js';
 import notebookRoutes from './routes/notebooks.js';
 import statisticsRoutes from './routes/statistics.js';
+import publicRoutes from './routes/public.js';
+import dashboardRoutes from './routes/dashboard.js';
 import User from './models/User.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,6 +35,8 @@ app.use('/api/exams', examRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/notebooks', notebookRoutes);
 app.use('/api/statistics', statisticsRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

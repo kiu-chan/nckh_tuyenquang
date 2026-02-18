@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
+import {
   FiArrowRight,
   FiCheckCircle,
   FiUsers,
@@ -7,7 +8,7 @@ import {
   FiTrendingUp,
   FiZap
 } from 'react-icons/fi';
-import { 
+import {
   IoBookOutline,
   IoDocumentTextOutline,
   IoGameControllerOutline,
@@ -19,6 +20,8 @@ import {
   IoPeopleOutline,
   IoFlaskOutline
 } from 'react-icons/io5';
+
+const API = '/api';
 
 const features = [
   {
@@ -75,33 +78,60 @@ const teacherTools = [
   { icon: IoSchoolOutline, title: 'Làm kế hoạch dạy học', color: '#EF4444' },
 ];
 
-const stats = [
-  { icon: FiUsers, value: '10K+', label: 'Giáo viên' },
-  { icon: IoSchoolOutline, value: '50K+', label: 'Học sinh' },
-  { icon: IoDocumentTextOutline, value: '100K+', label: 'Tài liệu' },
-  { icon: FiAward, value: '4.9/5', label: 'Đánh giá' },
-];
+const formatStatValue = (value) => {
+  if (value >= 1000) return `${(value / 1000).toFixed(1).replace('.0', '')}K+`;
+  return `${value}+`;
+};
 
 function Home() {
+  const [siteStats, setSiteStats] = useState({
+    teachers: 0,
+    students: 0,
+    documents: 0,
+    exams: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${API}/public/stats`);
+        const data = await res.json();
+        if (data.success) {
+          setSiteStats(data.stats);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const stats = [
+    { icon: FiUsers, value: formatStatValue(siteStats.teachers), label: 'Giáo viên' },
+    { icon: IoSchoolOutline, value: formatStatValue(siteStats.students), label: 'Học sinh' },
+    { icon: IoDocumentTextOutline, value: formatStatValue(siteStats.documents), label: 'Tài liệu' },
+    { icon: FiAward, value: formatStatValue(siteStats.exams), label: 'Đề thi' },
+  ];
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-white to-teal-50">
         <div className="absolute top-20 left-10 w-72 h-72 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
         <div className="absolute top-40 right-10 w-72 h-72 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
-        
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32">
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-100 rounded-full text-emerald-600 text-sm font-medium mb-6">
               <FiZap className="w-4 h-4" />
               <span>Powered by AI</span>
             </div>
-            
+
             <h1 className="text-4xl lg:text-6xl font-bold text-gray-800 leading-tight mb-6">
               Notebook thông minh cho
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 to-teal-500"> giáo viên hiện đại</span>
             </h1>
-            
+
             <p className="text-lg lg:text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               Tự động hóa công việc giảng dạy với AI: Tóm tắt tài liệu, tạo câu hỏi, thiết kế đề thi, và nhiều hơn nữa
             </p>
@@ -115,10 +145,10 @@ function Home() {
                 <FiArrowRight className="w-5 h-5" />
               </Link>
               <Link
-                to="/demo"
+                to="/about"
                 className="inline-flex items-center gap-2 px-8 py-4 bg-white hover:bg-gray-50 text-gray-700 font-semibold rounded-full border border-gray-200 transition-all"
               >
-                Xem demo
+                Tìm hiểu thêm
               </Link>
             </div>
 
@@ -157,7 +187,7 @@ function Home() {
             {features.map((feature, i) => {
               const Icon = feature.icon;
               return (
-                <div 
+                <div
                   key={i}
                   className="p-6 bg-white border border-gray-100 rounded-2xl hover:shadow-xl transition-all group"
                 >
@@ -199,7 +229,7 @@ function Home() {
                   className="p-6 bg-white rounded-xl hover:shadow-lg transition-all group cursor-pointer"
                 >
                   <div className="flex flex-col items-center text-center gap-3">
-                    <div 
+                    <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform"
                       style={{ backgroundColor: `${tool.color}15` }}
                     >
@@ -232,10 +262,10 @@ function Home() {
               <FiArrowRight className="w-5 h-5" />
             </Link>
             <Link
-              to="/contact"
+              to="/about"
               className="inline-flex items-center gap-2 px-8 py-4 bg-emerald-600 text-white font-semibold rounded-full hover:bg-emerald-700 transition-all"
             >
-              Liên hệ tư vấn
+              Tìm hiểu thêm
             </Link>
           </div>
         </div>
@@ -248,11 +278,11 @@ function Home() {
           50% { transform: translate(-20px, 20px) scale(0.9); }
           75% { transform: translate(30px, 10px) scale(1.05); }
         }
-        
+
         .animate-blob {
           animation: blob 8s infinite ease-in-out;
         }
-        
+
         .animation-delay-2000 {
           animation-delay: 2s;
         }
