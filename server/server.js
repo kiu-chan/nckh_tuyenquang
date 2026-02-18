@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.js';
 import studentRoutes from './routes/students.js';
+import gameRoutes from './routes/games.js';
+import examRoutes from './routes/exams.js';
 import User from './models/User.js';
 
 dotenv.config({ path: './server/.env' });
@@ -18,6 +20,8 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/games', gameRoutes);
+app.use('/api/exams', examRoutes);
 
 // Seed demo users
 const seedUsers = async () => {

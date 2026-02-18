@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   FiPlus,
   FiSearch,
-  FiFilter,
   FiEdit2,
   FiTrash2,
   FiCopy,
@@ -22,21 +21,36 @@ import {
   IoCreateOutline,
   IoSparklesOutline,
   IoCheckmarkCircleOutline,
-  IoCloseCircleOutline,
   IoTimeOutline,
   IoPeopleOutline
 } from 'react-icons/io5';
 import AIExamCreator from '../../../components/AIExamCreator';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 const TeacherExams = () => {
-  const [activeTab, setActiveTab] = useState('all'); // all, draft, published, completed
+  const [activeTab, setActiveTab] = useState('all');
   const [selectedExam, setSelectedExam] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterSubject, setFilterSubject] = useState('all');
 
+  const [exams, setExams] = useState([]);
+  const [statsData, setStatsData] = useState({ total: 0, published: 0, completed: 0, draft: 0 });
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
   // AI Creation states
-  const [creationMethod, setCreationMethod] = useState('ai'); // 'manual' or 'ai'
+  const [creationMethod, setCreationMethod] = useState('ai');
   const [examConfig, setExamConfig] = useState({
     title: '',
     subject: '',
@@ -61,138 +75,177 @@ const TeacherExams = () => {
     { id: 'mixed', name: 'Trắc nghiệm + Tự luận', icon: IoCreateOutline },
   ];
 
-  const exams = [
-    {
-      id: 1,
-      title: 'Kiểm tra giữa kỳ I - Toán 10',
-      subject: 'Toán học',
-      subjectId: 'math',
-      type: 'mixed',
+  const fetchExams = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (activeTab !== 'all') params.append('status', activeTab);
+      if (filterSubject !== 'all') {
+        const subjectName = subjects.find(s => s.id === filterSubject)?.name;
+        if (subjectName) params.append('subject', subjectName);
+      }
+      if (searchQuery) params.append('search', searchQuery);
+
+      const res = await fetch(`${API}/exams?${params}`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) setExams(data.exams);
+    } catch (err) {
+      console.error('Error fetching exams:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, filterSubject, searchQuery]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/exams/stats`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success) setStatsData(data.stats);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExams();
+  }, [fetchExams]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const handleCreateExam = async () => {
+    if (!examConfig.title || !examConfig.subject) {
+      setError('Vui lòng nhập tên đề thi và chọn môn học');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(`${API}/exams`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: examConfig.title,
+          subject: examConfig.subject,
+          subjectId: examConfig.subjectId,
+          type: examConfig.type,
+          difficulty: examConfig.difficulty,
+          duration: examConfig.duration,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setShowCreateModal(false);
+      resetExamConfig();
+      fetchExams();
+      fetchStats();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteExam = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa đề thi này?')) return;
+    try {
+      const res = await fetch(`${API}/exams/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchExams();
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Error deleting exam:', err);
+    }
+  };
+
+  const handleDuplicateExam = async (id) => {
+    try {
+      const res = await fetch(`${API}/exams/${id}/duplicate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchExams();
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Error duplicating exam:', err);
+    }
+  };
+
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const res = await fetch(`${API}/exams/${id}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchExams();
+        fetchStats();
+      }
+    } catch (err) {
+      console.error('Error changing status:', err);
+    }
+  };
+
+  const handleQuestionsGenerated = async (data) => {
+    try {
+      const res = await fetch(`${API}/exams`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          title: examConfig.title || `Đề thi ${examConfig.subject} - AI`,
+          subject: examConfig.subject,
+          subjectId: examConfig.subjectId,
+          type: examConfig.type,
+          difficulty: examConfig.difficulty,
+          duration: examConfig.duration,
+          questions: data.questions || [],
+          topics: data.topics || [],
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message);
+      setShowCreateModal(false);
+      resetExamConfig();
+      fetchExams();
+      fetchStats();
+    } catch (err) {
+      alert('Lỗi khi lưu đề thi: ' + err.message);
+    }
+  };
+
+  const resetExamConfig = () => {
+    setExamConfig({
+      title: '',
+      subject: '',
+      subjectId: '',
+      type: 'multiple-choice',
+      difficulty: 'medium',
       duration: 90,
       totalQuestions: 30,
-      totalPoints: 10,
-      status: 'published',
-      createdDate: '15/01/2025',
-      scheduledDate: '25/01/2025',
-      scheduledTime: '07:30',
-      class: 'Lớp 10A1, 10A2',
-      students: 68,
-      submitted: 45,
-      graded: 30,
-      difficulty: 'medium',
-      topics: ['Hàm số', 'Phương trình', 'Bất phương trình']
-    },
-    {
-      id: 2,
-      title: 'Kiểm tra 15 phút - Đạo hàm',
-      subject: 'Toán học',
-      subjectId: 'math',
-      type: 'multiple-choice',
-      duration: 15,
-      totalQuestions: 10,
-      totalPoints: 10,
-      status: 'completed',
-      createdDate: '10/01/2025',
-      scheduledDate: '18/01/2025',
-      scheduledTime: '07:00',
-      class: 'Lớp 11A1',
-      students: 34,
-      submitted: 34,
-      graded: 34,
-      difficulty: 'easy',
-      topics: ['Đạo hàm cơ bản', 'Quy tắc đạo hàm']
-    },
-    {
-      id: 3,
-      title: 'Đề thi thử THPT Quốc gia 2025',
-      subject: 'Toán học',
-      subjectId: 'math',
-      type: 'mixed',
-      duration: 180,
-      totalQuestions: 50,
-      totalPoints: 10,
-      status: 'draft',
-      createdDate: '20/01/2025',
-      scheduledDate: null,
-      scheduledTime: null,
-      class: null,
-      students: 0,
-      submitted: 0,
-      graded: 0,
-      difficulty: 'hard',
-      topics: ['Tổng hợp tất cả chương']
-    },
-    {
-      id: 4,
-      title: 'Kiểm tra học kỳ I - Vật lý 10',
-      subject: 'Vật lý',
-      subjectId: 'physics',
-      type: 'mixed',
-      duration: 60,
-      totalQuestions: 25,
-      totalPoints: 10,
-      status: 'published',
-      createdDate: '12/01/2025',
-      scheduledDate: '28/01/2025',
-      scheduledTime: '09:00',
-      class: 'Lớp 10A1, 10A3',
-      students: 56,
-      submitted: 12,
-      graded: 0,
-      difficulty: 'medium',
-      topics: ['Động học', 'Động lực học']
-    },
-    {
-      id: 5,
-      title: 'Bài tập tự luận - Hóa hữu cơ',
-      subject: 'Hóa học',
-      subjectId: 'chemistry',
-      type: 'essay',
-      duration: 45,
-      totalQuestions: 5,
-      totalPoints: 10,
-      status: 'draft',
-      createdDate: '18/01/2025',
-      scheduledDate: null,
-      scheduledTime: null,
-      class: null,
-      students: 0,
-      submitted: 0,
-      graded: 0,
-      difficulty: 'hard',
-      topics: ['Hidrocacbon', 'Dẫn xuất']
-    },
-  ];
+    });
+    setCreationMethod('ai');
+    setError('');
+  };
+
+  const handleExamConfigChange = (field, value) => {
+    setExamConfig(prev => ({ ...prev, [field]: value }));
+  };
 
   const stats = [
-    { 
-      label: 'Tổng đề thi', 
-      value: exams.length.toString(), 
-      icon: IoDocumentTextOutline, 
-      color: 'blue',
-      change: '+3 tuần này'
-    },
-    { 
-      label: 'Đang diễn ra', 
-      value: exams.filter(e => e.status === 'published').length.toString(), 
-      icon: IoTimeOutline, 
-      color: 'green',
-      change: '2 đề sắp tới'
-    },
-    { 
-      label: 'Đã hoàn thành', 
-      value: exams.filter(e => e.status === 'completed').length.toString(), 
-      icon: IoCheckmarkCircleOutline, 
-      color: 'purple',
-      change: '100% đã chấm'
-    },
-    { 
-      label: 'Nháp', 
-      value: exams.filter(e => e.status === 'draft').length.toString(), 
-      icon: IoCreateOutline, 
-      color: 'orange',
-      change: 'Cần hoàn thiện'
-    },
+    { label: 'Tổng đề thi', value: statsData.total, icon: IoDocumentTextOutline, color: 'blue' },
+    { label: 'Đang diễn ra', value: statsData.published, icon: IoTimeOutline, color: 'green' },
+    { label: 'Đã hoàn thành', value: statsData.completed, icon: IoCheckmarkCircleOutline, color: 'purple' },
+    { label: 'Nháp', value: statsData.draft, icon: IoCreateOutline, color: 'orange' },
   ];
 
   const getStatusBadge = (status) => {
@@ -226,33 +279,18 @@ const TeacherExams = () => {
     return type ? type.icon : IoDocumentTextOutline;
   };
 
-  const filteredExams = exams.filter(exam => {
-    const matchesTab = activeTab === 'all' || exam.status === activeTab;
-    const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         exam.subject.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesSubject = filterSubject === 'all' || exam.subjectId === filterSubject;
-    return matchesTab && matchesSearch && matchesSubject;
-  });
-
   const getProgressPercentage = (submitted, total) => {
     if (total === 0) return 0;
     return Math.round((submitted / total) * 100);
   };
 
-  const handleQuestionsGenerated = (data) => {
-    // Xử lý khi AI tạo xong câu hỏi
-    console.log('Questions generated:', data);
-    // TODO: Lưu vào database hoặc state
-    alert(`Đã tạo ${data.totalQuestions} câu hỏi thành công! (Tính năng lưu đang phát triển)`);
-    setShowCreateModal(false);
-  };
-
-  const handleExamConfigChange = (field, value) => {
-    setExamConfig(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -284,8 +322,7 @@ const TeacherExams = () => {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-800 mb-1">{stat.value}</p>
-                <p className="text-sm text-gray-600 mb-2">{stat.label}</p>
-                <p className="text-xs text-gray-500">{stat.change}</p>
+                <p className="text-sm text-gray-600">{stat.label}</p>
               </div>
             </div>
           );
@@ -297,10 +334,10 @@ const TeacherExams = () => {
         {/* Tabs */}
         <div className="flex items-center gap-2 mb-6 border-b border-gray-100 pb-4">
           {[
-            { id: 'all', label: 'Tất cả', count: exams.length },
-            { id: 'draft', label: 'Nháp', count: exams.filter(e => e.status === 'draft').length },
-            { id: 'published', label: 'Đang mở', count: exams.filter(e => e.status === 'published').length },
-            { id: 'completed', label: 'Đã hoàn thành', count: exams.filter(e => e.status === 'completed').length },
+            { id: 'all', label: 'Tất cả', count: statsData.total },
+            { id: 'draft', label: 'Nháp', count: statsData.draft },
+            { id: 'published', label: 'Đang mở', count: statsData.published },
+            { id: 'completed', label: 'Đã hoàn thành', count: statsData.completed },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -323,7 +360,6 @@ const TeacherExams = () => {
 
         {/* Search & Filters */}
         <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1">
             <div className="relative">
               <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -337,7 +373,6 @@ const TeacherExams = () => {
             </div>
           </div>
 
-          {/* Subject Filter */}
           <select
             value={filterSubject}
             onChange={(e) => setFilterSubject(e.target.value)}
@@ -354,14 +389,14 @@ const TeacherExams = () => {
 
       {/* Exams List */}
       <div className="space-y-4">
-        {filteredExams.map((exam) => {
+        {exams.map((exam) => {
           const statusBadge = getStatusBadge(exam.status);
           const difficultyBadge = getDifficultyBadge(exam.difficulty);
           const TypeIcon = getTypeIcon(exam.type);
           const progressPercentage = getProgressPercentage(exam.submitted, exam.students);
 
           return (
-            <div key={exam.id} className="bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all">
+            <div key={exam._id} className="bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all">
               <div className="p-6">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -400,7 +435,7 @@ const TeacherExams = () => {
                 </div>
 
                 {/* Topics */}
-                {exam.topics && (
+                {exam.topics && exam.topics.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {exam.topics.map((topic, index) => (
                       <span key={index} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
@@ -424,15 +459,15 @@ const TeacherExams = () => {
                       <p className="text-xs text-blue-600">{exam.scheduledTime}</p>
                     </div>
                   )}
-                  
-                  {exam.class && (
+
+                  {exam.className && (
                     <div className="p-3 bg-purple-50 rounded-lg">
                       <div className="flex items-center gap-2 text-purple-700 mb-1">
                         <FiUsers className="w-4 h-4" />
                         <span className="text-xs font-medium">Lớp</span>
                       </div>
                       <p className="text-sm font-semibold text-purple-900">
-                        {exam.class}
+                        {exam.className}
                       </p>
                     </div>
                   )}
@@ -462,7 +497,7 @@ const TeacherExams = () => {
                   )}
                 </div>
 
-                {/* Progress Bar (for published/completed) */}
+                {/* Progress Bar */}
                 {exam.status !== 'draft' && exam.students > 0 && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between text-sm mb-2">
@@ -470,7 +505,7 @@ const TeacherExams = () => {
                       <span className="font-semibold text-gray-800">{progressPercentage}%</span>
                     </div>
                     <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div 
+                      <div
                         className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
                         style={{ width: `${progressPercentage}%` }}
                       />
@@ -486,15 +521,28 @@ const TeacherExams = () => {
                 <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
                   {exam.status === 'draft' ? (
                     <>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors">
+                      <button
+                        onClick={() => handleStatusChange(exam._id, 'published')}
+                        className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                      >
+                        <FiCheckCircle className="w-4 h-4" />
+                        <span>Phát hành</span>
+                      </button>
+                      <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
                         <FiEdit2 className="w-4 h-4" />
                         <span>Chỉnh sửa</span>
                       </button>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
-                        <IoSparklesOutline className="w-4 h-4" />
-                        <span>Tạo tự động bằng AI</span>
+                      <button
+                        onClick={() => handleDuplicateExam(exam._id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        <FiCopy className="w-4 h-4" />
+                        <span>Sao chép</span>
                       </button>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                      <button
+                        onClick={() => handleDeleteExam(exam._id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
                         <FiTrash2 className="w-4 h-4" />
                         <span>Xóa</span>
                       </button>
@@ -506,10 +554,19 @@ const TeacherExams = () => {
                         <span>Xem chi tiết</span>
                       </button>
                       {exam.status === 'published' && (
-                        <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
-                          <FiUsers className="w-4 h-4" />
-                          <span>Theo dõi ({exam.submitted})</span>
-                        </button>
+                        <>
+                          <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+                            <FiUsers className="w-4 h-4" />
+                            <span>Theo dõi ({exam.submitted})</span>
+                          </button>
+                          <button
+                            onClick={() => handleStatusChange(exam._id, 'completed')}
+                            className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                          >
+                            <FiCheckCircle className="w-4 h-4" />
+                            <span>Kết thúc</span>
+                          </button>
+                        </>
                       )}
                       {exam.status === 'completed' && (
                         <button className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">
@@ -517,7 +574,10 @@ const TeacherExams = () => {
                           <span>Xem kết quả</span>
                         </button>
                       )}
-                      <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                      <button
+                        onClick={() => handleDuplicateExam(exam._id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
                         <FiCopy className="w-4 h-4" />
                         <span>Sao chép</span>
                       </button>
@@ -539,7 +599,7 @@ const TeacherExams = () => {
       </div>
 
       {/* Empty State */}
-      {filteredExams.length === 0 && (
+      {exams.length === 0 && (
         <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
           <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center mx-auto mb-4">
             <IoDocumentTextOutline className="w-10 h-10 text-gray-400" />
@@ -564,13 +624,17 @@ const TeacherExams = () => {
               <button
                 onClick={() => {
                   setShowCreateModal(false);
-                  setCreationMethod('ai');
+                  resetExamConfig();
                 }}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <FiXCircle className="w-6 h-6 text-gray-600" />
               </button>
             </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
+            )}
 
             <div className="space-y-6">
               {/* Choose Type */}
@@ -708,19 +772,18 @@ const TeacherExams = () => {
                     <button
                       onClick={() => {
                         setShowCreateModal(false);
-                        setCreationMethod('ai');
+                        resetExamConfig();
                       }}
                       className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
                     >
                       Hủy
                     </button>
                     <button
-                      onClick={() => {
-                        alert('Tính năng tạo thủ công đang phát triển');
-                      }}
-                      className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all"
+                      onClick={handleCreateExam}
+                      disabled={submitting}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50"
                     >
-                      Tiếp tục
+                      {submitting ? 'Đang tạo...' : 'Tạo đề thi'}
                     </button>
                   </div>
                 </>
@@ -790,7 +853,7 @@ const TeacherExams = () => {
                     onQuestionsGenerated={handleQuestionsGenerated}
                     onClose={() => {
                       setShowCreateModal(false);
-                      setCreationMethod('ai');
+                      resetExamConfig();
                     }}
                   />
                 </>
