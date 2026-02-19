@@ -1,6 +1,7 @@
 import express from 'express';
 import Student from '../models/Student.js';
 import User from '../models/User.js';
+import Game from '../models/Game.js';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/role.js';
 
@@ -92,6 +93,77 @@ router.get('/check-email', async (req, res) => {
     } else {
       res.json({ success: true, exists: false });
     }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/students/add-to-wheel - Thêm học sinh vào vòng quay
+router.post('/add-to-wheel', async (req, res) => {
+  try {
+    const { gameId, className, studentIds, mode = 'append' } = req.body;
+
+    if (!gameId) {
+      return res.status(400).json({ message: 'gameId là bắt buộc' });
+    }
+
+    // Kiểm tra game thuộc về giáo viên và là wheel
+    const game = await Game.findOne({
+      _id: gameId,
+      teacher: req.user._id,
+      type: 'wheel',
+    });
+
+    if (!game) {
+      return res.status(404).json({ message: 'Không tìm thấy vòng quay' });
+    }
+
+    // Lấy danh sách học sinh
+    const filter = { teacher: req.user._id, status: 'active' };
+    if (className) filter.className = className;
+    if (studentIds && studentIds.length > 0) {
+      filter._id = { $in: studentIds };
+    }
+
+    const students = await Student.find(filter).select('name').sort({ name: 1 });
+
+    if (students.length === 0) {
+      return res.status(400).json({ message: 'Không tìm thấy học sinh nào' });
+    }
+
+    const studentNames = students.map((s) => s.name);
+
+    // mode: 'replace' = thay thế toàn bộ, 'append' = thêm vào (bỏ trùng)
+    if (mode === 'replace') {
+      game.items = studentNames;
+    } else {
+      const existing = new Set(game.items);
+      const newItems = studentNames.filter((name) => !existing.has(name));
+      game.items = [...game.items, ...newItems];
+    }
+
+    await game.save();
+
+    res.json({
+      success: true,
+      game,
+      addedCount: studentNames.length,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/students/names - Lấy danh sách tên học sinh (dùng cho vòng quay)
+router.get('/names', async (req, res) => {
+  try {
+    const { className } = req.query;
+    const filter = { teacher: req.user._id, status: 'active' };
+    if (className) filter.className = className;
+
+    const students = await Student.find(filter).select('name className').sort({ name: 1 });
+
+    res.json({ success: true, students });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
