@@ -79,10 +79,19 @@ router.get('/:id', async (req, res) => {
 // POST /api/exams - Tạo đề thi mới
 router.post('/', async (req, res) => {
   try {
-    const exam = await Exam.create({
-      ...req.body,
-      teacher: req.user._id,
-    });
+    const body = { ...req.body, teacher: req.user._id };
+    if (body.questions && Array.isArray(body.questions)) {
+      body.questions = body.questions
+        .filter((q) => q.question && String(q.question).trim())
+        .map((q) => ({
+          question: String(q.question).trim(),
+          type: q.type || 'multiple-choice',
+          answers: q.answers || [],
+          correct: q.correct,
+          points: q.points || 1,
+        }));
+    }
+    const exam = await Exam.create(body);
     res.status(201).json({ success: true, exam });
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -96,14 +105,33 @@ router.post('/', async (req, res) => {
 // PUT /api/exams/:id - Cập nhật đề thi
 router.put('/:id', async (req, res) => {
   try {
-    const exam = await Exam.findOneAndUpdate(
-      { _id: req.params.id, teacher: req.user._id },
-      req.body,
-      { new: true, runValidators: true }
-    );
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
     if (!exam) {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
+
+    const { title, subject, subjectId, type, difficulty, duration, questions, topics } = req.body;
+    if (title !== undefined) exam.title = title;
+    if (subject !== undefined) exam.subject = subject;
+    if (subjectId !== undefined) exam.subjectId = subjectId;
+    if (type !== undefined) exam.type = type;
+    if (difficulty !== undefined) exam.difficulty = difficulty;
+    if (duration !== undefined) exam.duration = duration;
+    if (topics !== undefined) exam.topics = topics;
+    if (questions !== undefined) {
+      exam.questions = questions
+        .filter((q) => q.question && String(q.question).trim())
+        .map((q) => ({
+          question: String(q.question).trim(),
+          type: q.type || 'multiple-choice',
+          answers: q.answers || [],
+          correct: q.correct,
+          points: q.points || 1,
+        }));
+      exam.markModified('questions');
+    }
+
+    await exam.save();
     res.json({ success: true, exam });
   } catch (error) {
     if (error.name === 'ValidationError') {

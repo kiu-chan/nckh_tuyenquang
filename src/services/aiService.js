@@ -9,6 +9,29 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
 /**
+ * Sanitize JSON text từ AI - loại bỏ ký tự điều khiển trong string literals
+ */
+const sanitizeJSONText = (text) => {
+  // Loại bỏ markdown code block
+  let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  // Thay thế ký tự điều khiển bên trong string literals
+  // Regex: tìm mọi string literal "..." và escape control chars bên trong
+  cleaned = cleaned.replace(/"((?:[^"\\]|\\.)*)"/g, (_match, content) => {
+    const sanitized = content
+      .replace(/[\x00-\x1F]/g, (ch) => {
+        switch (ch) {
+          case '\n': return '\\n';
+          case '\r': return '\\r';
+          case '\t': return '\\t';
+          default: return '';
+        }
+      });
+    return `"${sanitized}"`;
+  });
+  return cleaned;
+};
+
+/**
  * Tạo câu hỏi trắc nghiệm từ nội dung
  */
 export const generateMultipleChoiceQuestions = async ({
@@ -73,10 +96,7 @@ CHÚ Ý: Chỉ trả về JSON thuần túy, không thêm bất kỳ text nào k
     const response = await result.response;
     let text = response.text();
 
-    // Loại bỏ markdown nếu có
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    const questions = JSON.parse(text);
+    const questions = JSON.parse(sanitizeJSONText(text));
     return {
       success: true,
       questions,
@@ -153,10 +173,7 @@ CHÚ Ý: Chỉ trả về JSON thuần túy, không thêm bất kỳ text nào k
     const response = await result.response;
     let text = response.text();
 
-    // Loại bỏ markdown nếu có
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-
-    const questions = JSON.parse(text);
+    const questions = JSON.parse(sanitizeJSONText(text));
     return {
       success: true,
       questions,
@@ -351,39 +368,66 @@ export const generateMixedExam = async ({
   instructions = ''
 }) => {
   try {
-    // Tạo song song cả 2 loại câu hỏi
-    const [mcResult, essayResult] = await Promise.all([
-      generateMultipleChoiceQuestions({
+    // Gọi tuần tự để tránh rate-limit từ Gemini API
+    const mcResult = await generateMultipleChoiceQuestions({
+      content,
+      numberOfQuestions: multipleChoiceCount,
+      difficulty,
+      subject,
+      topics,
+      instructions
+    });
+
+    const essayResult = await generateEssayQuestions({
+      content,
+      numberOfQuestions: essayCount,
+      difficulty,
+      subject,
+      topics,
+      instructions
+    });
+
+    if (!mcResult.success && !essayResult.success) {
+      return {
+        success: false,
+        error: 'Không thể tạo câu hỏi từ AI. ' + (mcResult.error || '') + ' ' + (essayResult.error || ''),
+        questions: []
+      };
+    }
+
+    // Nếu một trong hai thất bại, retry lần nữa
+    let finalMc = mcResult;
+    let finalEssay = essayResult;
+
+    if (!mcResult.success && essayResult.success) {
+      console.log('MC failed, retrying...');
+      finalMc = await generateMultipleChoiceQuestions({
         content,
         numberOfQuestions: multipleChoiceCount,
         difficulty,
         subject,
         topics,
         instructions
-      }),
-      generateEssayQuestions({
+      });
+    }
+
+    if (mcResult.success && !essayResult.success) {
+      console.log('Essay failed, retrying...');
+      finalEssay = await generateEssayQuestions({
         content,
         numberOfQuestions: essayCount,
         difficulty,
         subject,
         topics,
         instructions
-      })
-    ]);
-
-    if (!mcResult.success && !essayResult.success) {
-      return {
-        success: false,
-        error: 'Không thể tạo câu hỏi từ AI',
-        questions: []
-      };
+      });
     }
 
     return {
       success: true,
-      multipleChoiceQuestions: mcResult.questions || [],
-      essayQuestions: essayResult.questions || [],
-      totalQuestions: (mcResult.questions?.length || 0) + (essayResult.questions?.length || 0)
+      multipleChoiceQuestions: finalMc.questions || [],
+      essayQuestions: finalEssay.questions || [],
+      totalQuestions: (finalMc.questions?.length || 0) + (finalEssay.questions?.length || 0)
     };
   } catch (error) {
     console.error('Error generating mixed exam:', error);

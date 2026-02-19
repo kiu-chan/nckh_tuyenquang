@@ -1,0 +1,258 @@
+import {
+  FiEdit2,
+  FiTrash2,
+  FiCopy,
+  FiEye,
+  FiDownload,
+  FiShare2,
+  FiClock,
+  FiUsers,
+  FiCheckCircle,
+  FiMoreVertical,
+  FiCalendar,
+  FiFileText,
+} from 'react-icons/fi';
+import {
+  IoDocumentTextOutline,
+  IoCreateOutline,
+  IoCheckmarkCircleOutline,
+  IoPeopleOutline,
+} from 'react-icons/io5';
+
+const examTypes = [
+  { id: 'multiple-choice', name: 'Trắc nghiệm', icon: IoCheckmarkCircleOutline },
+  { id: 'essay', name: 'Tự luận', icon: IoDocumentTextOutline },
+  { id: 'mixed', name: 'Trắc nghiệm + Tự luận', icon: IoCreateOutline },
+];
+
+const getStatusBadge = (status) => {
+  switch (status) {
+    case 'published':
+      return { text: 'Đang mở', color: 'bg-green-100 text-green-700 border-green-200' };
+    case 'completed':
+      return { text: 'Đã hoàn thành', color: 'bg-purple-100 text-purple-700 border-purple-200' };
+    case 'draft':
+      return { text: 'Nháp', color: 'bg-orange-100 text-orange-700 border-orange-200' };
+    default:
+      return { text: 'Khác', color: 'bg-gray-100 text-gray-700 border-gray-200' };
+  }
+};
+
+const getDifficultyBadge = (difficulty) => {
+  switch (difficulty) {
+    case 'easy':
+      return { text: 'Dễ', color: 'bg-green-50 text-green-700' };
+    case 'medium':
+      return { text: 'Trung bình', color: 'bg-yellow-50 text-yellow-700' };
+    case 'hard':
+      return { text: 'Khó', color: 'bg-red-50 text-red-700' };
+    default:
+      return { text: '', color: '' };
+  }
+};
+
+const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewDetail, onDownload }) => {
+  const statusBadge = getStatusBadge(exam.status);
+  const difficultyBadge = getDifficultyBadge(exam.difficulty);
+  const typeInfo = examTypes.find((t) => t.id === exam.type);
+  const TypeIcon = typeInfo ? typeInfo.icon : IoDocumentTextOutline;
+  const progressPercentage = exam.students > 0 ? Math.round((exam.submitted / exam.students) * 100) : 0;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all">
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="text-lg font-semibold text-gray-800">{exam.title}</h3>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}>
+                {statusBadge.text}
+              </span>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${difficultyBadge.color}`}>
+                {difficultyBadge.text}
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1">
+                <FiFileText className="w-4 h-4" />
+                {exam.subject}
+              </span>
+              <span className="flex items-center gap-1">
+                <TypeIcon className="w-4 h-4" />
+                {typeInfo?.name}
+              </span>
+              <span className="flex items-center gap-1">
+                <FiClock className="w-4 h-4" />
+                {exam.duration} phút
+              </span>
+              <span className="flex items-center gap-1">
+                <FiFileText className="w-4 h-4" />
+                {exam.totalQuestions} câu
+              </span>
+            </div>
+          </div>
+          <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <FiMoreVertical className="w-5 h-5 text-gray-600" />
+          </button>
+        </div>
+
+        {/* Topics */}
+        {exam.topics && exam.topics.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {exam.topics.map((topic, index) => (
+              <span key={index} className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                {topic}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          {exam.scheduledDate && (
+            <div className="p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center gap-2 text-blue-700 mb-1">
+                <FiCalendar className="w-4 h-4" />
+                <span className="text-xs font-medium">Lịch thi</span>
+              </div>
+              <p className="text-sm font-semibold text-blue-900">{exam.scheduledDate}</p>
+              <p className="text-xs text-blue-600">{exam.scheduledTime}</p>
+            </div>
+          )}
+
+          {exam.className && (
+            <div className="p-3 bg-purple-50 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-700 mb-1">
+                <FiUsers className="w-4 h-4" />
+                <span className="text-xs font-medium">Lớp</span>
+              </div>
+              <p className="text-sm font-semibold text-purple-900">{exam.className}</p>
+            </div>
+          )}
+
+          {exam.students > 0 && (
+            <div className="p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-2 text-green-700 mb-1">
+                <IoPeopleOutline className="w-4 h-4" />
+                <span className="text-xs font-medium">Học sinh</span>
+              </div>
+              <p className="text-sm font-semibold text-green-900">{exam.students} người</p>
+            </div>
+          )}
+
+          {exam.status !== 'draft' && (
+            <div className="p-3 bg-orange-50 rounded-lg">
+              <div className="flex items-center gap-2 text-orange-700 mb-1">
+                <FiCheckCircle className="w-4 h-4" />
+                <span className="text-xs font-medium">Đã nộp</span>
+              </div>
+              <p className="text-sm font-semibold text-orange-900">
+                {exam.submitted}/{exam.students}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Progress Bar */}
+        {exam.status !== 'draft' && exam.students > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between text-sm mb-2">
+              <span className="text-gray-600">Tiến độ nộp bài</span>
+              <span className="font-semibold text-gray-800">{progressPercentage}%</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all"
+                style={{ width: `${progressPercentage}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+              <span>Đã chấm: {exam.graded}/{exam.submitted}</span>
+              <span>Còn lại: {exam.students - exam.submitted}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+          {exam.status === 'draft' ? (
+            <>
+              <button
+                onClick={() => onStatusChange(exam._id, 'published')}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+              >
+                <FiCheckCircle className="w-4 h-4" />
+                <span>Phát hành</span>
+              </button>
+              <button
+                onClick={() => onEdit(exam)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <FiEdit2 className="w-4 h-4" />
+                <span>Chỉnh sửa</span>
+              </button>
+              <button
+                onClick={() => onDownload(exam)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiDownload className="w-4 h-4" />
+                <span>Tải xuống</span>
+              </button>
+              <button
+                onClick={() => onDuplicate(exam._id)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiCopy className="w-4 h-4" />
+                <span>Sao chép</span>
+              </button>
+              <button
+                onClick={() => onDelete(exam._id)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiTrash2 className="w-4 h-4" />
+                <span>Xóa</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => onViewDetail(exam)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <FiEye className="w-4 h-4" />
+                <span>Xem chi tiết</span>
+              </button>
+              {exam.status === 'published' && (
+                <button
+                  onClick={() => onStatusChange(exam._id, 'completed')}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                >
+                  <FiCheckCircle className="w-4 h-4" />
+                  <span>Kết thúc</span>
+                </button>
+              )}
+              <button
+                onClick={() => onDownload(exam)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiDownload className="w-4 h-4" />
+                <span>Tải xuống</span>
+              </button>
+              <button
+                onClick={() => onDuplicate(exam._id)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <FiCopy className="w-4 h-4" />
+                <span>Sao chép</span>
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export { examTypes, getStatusBadge, getDifficultyBadge };
+export default ExamCard;
