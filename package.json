@@ -21,6 +21,7 @@
     "google-auth-library": "^10.5.0",
     "html2pdf.js": "^0.14.0",
     "jsonwebtoken": "^9.0.3",
+    "katex": "^0.16.28",
     "lucide-react": "^0.562.0",
     "mammoth": "^1.11.0",
     "mongoose": "^9.2.1",

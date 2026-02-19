@@ -16,6 +16,7 @@ import {
   generateMixedExam,
   extractTextFromFile
 } from '../services/aiService';
+import MathDisplay from './MathDisplay';
 
 const AIExamCreator = ({ examType, subject, difficulty, onQuestionsGenerated, onClose }) => {
   const [step, setStep] = useState(1); // 1: Upload/Input, 2: Preview Questions
@@ -426,7 +427,7 @@ const AIExamCreator = ({ examType, subject, difficulty, onQuestionsGenerated, on
                       <div className="flex items-start justify-between mb-3">
                         <p className="font-medium text-gray-800 flex-1">
                           <span className="text-purple-600 mr-2">Câu {index + 1}:</span>
-                          {q.question}
+                          <MathDisplay text={q.question} />
                         </p>
                         <button
                           onClick={() => handleRemoveQuestion('multipleChoice', index)}
@@ -445,7 +446,8 @@ const AIExamCreator = ({ examType, subject, difficulty, onQuestionsGenerated, on
                                 : 'bg-white border border-gray-200'
                             }`}
                           >
-                            <span className="font-medium">{option.label}.</span> {option.text}
+                            <span className="font-medium">{option.label}.</span>{' '}
+                            <MathDisplay text={option.text} />
                             {option.label === q.correctAnswer && (
                               <IoCheckmarkCircleOutline className="inline-block ml-2 w-4 h-4 text-green-600" />
                             )}
@@ -453,7 +455,7 @@ const AIExamCreator = ({ examType, subject, difficulty, onQuestionsGenerated, on
                         ))}
                       </div>
                       <div className="text-xs text-gray-600 bg-blue-50 p-2 rounded border border-blue-200">
-                        <strong>Giải thích:</strong> {q.explanation}
+                        <strong>Giải thích:</strong> <MathDisplay text={q.explanation} />
                       </div>
                       <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
                         <span className="px-2 py-1 bg-gray-200 rounded">{q.topic}</span>
@@ -478,7 +480,7 @@ const AIExamCreator = ({ examType, subject, difficulty, onQuestionsGenerated, on
                       <div className="flex items-start justify-between mb-3">
                         <p className="font-medium text-gray-800 flex-1">
                           <span className="text-blue-600 mr-2">Câu {index + 1}:</span>
-                          {q.question}
+                          <MathDisplay text={q.question} />
                         </p>
                         <button
                           onClick={() => handleRemoveQuestion('essay', index)}

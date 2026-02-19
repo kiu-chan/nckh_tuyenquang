@@ -59,3 +59,54 @@ html, body, #root {
   margin-bottom: 0.25rem;
   line-height: 1.6;
 }
+
+/* KaTeX math display */
+.math-display-block {
+  display: block;
+  text-align: center;
+  margin: 0.5rem 0;
+}
+
+.math-error {
+  color: #dc2626;
+  font-family: ui-monospace, monospace;
+  font-size: 0.875em;
+  background: #fef2f2;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+.math-content .katex {
+  font-size: 1em;
+}
+
+/* WYSIWYG Math Editor */
+.wysiwyg-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
+.wysiwyg-editor:focus {
+  background-color: #fafafa;
+}
+
+.formula-chip {
+  display: inline;
+  cursor: default;
+  padding: 1px 3px;
+  margin: 0 1px;
+  border-radius: 4px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  transition: background 0.15s;
+}
+
+.formula-chip:hover {
+  background: #dcfce7;
+  border-color: #86efac;
+}
+
+.formula-chip .katex {
+  font-size: 1em;
+}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FiX, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { IoCheckmarkCircleOutline } from 'react-icons/io5';
+import MathInput from '../../../components/MathInput';
 
 const API = '/api';
 
@@ -231,12 +232,12 @@ const ExamEditModal = ({ exam, onClose, onSaved }) => {
                     </div>
                   </div>
 
-                  <textarea
+                  <MathInput
                     value={q.question}
-                    onChange={(e) => handleQuestionChange(qIndex, 'question', e.target.value)}
-                    placeholder="Nhập nội dung câu hỏi..."
+                    onChange={(val) => handleQuestionChange(qIndex, 'question', val)}
+                    placeholder="Nhập nội dung câu hỏi... (dùng $...$ cho công thức toán)"
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm mb-3"
+                    className="mb-3"
                   />
 
                   {q.type === 'multiple-choice' && (
@@ -256,12 +257,12 @@ const ExamEditModal = ({ exam, onClose, onSaved }) => {
                           <span className="text-sm font-medium text-gray-500 w-5">
                             {String.fromCharCode(65 + aIndex)}.
                           </span>
-                          <input
-                            type="text"
+                          <MathInput
                             value={answer}
-                            onChange={(e) => handleAnswerChange(qIndex, aIndex, e.target.value)}
+                            onChange={(val) => handleAnswerChange(qIndex, aIndex, val)}
                             placeholder={`Đáp án ${String.fromCharCode(65 + aIndex)}`}
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                            rows={1}
+                            className="flex-1"
                           />
                         </div>
                       ))}

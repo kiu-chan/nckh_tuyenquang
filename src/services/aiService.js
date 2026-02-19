@@ -69,14 +69,22 @@ YÊU CẦU:
 3. Câu hỏi phải rõ ràng, chính xác và phù hợp với độ khó đã chọn
 4. Đáp án phải hợp lý và có tính nhiễu cao
 5. Phải có giải thích ngắn gọn cho đáp án đúng
+6. QUAN TRỌNG - CÔNG THỨC TOÁN/HÓA/LÝ: Sử dụng cú pháp LaTeX với ký hiệu $ để bao quanh công thức.
+   - Công thức inline: $công_thức$ (VD: $x^{2}+1$, $\\frac{a}{b}$, $\\sqrt{x}$, $\\alpha$)
+   - Công thức block (căn giữa): $$công_thức$$ (VD: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$)
+   - VD câu hỏi: "Tìm nghiệm của phương trình $x^{2} - 5x + 6 = 0$"
+   - VD đáp án: "$x = 2$ hoặc $x = 3$"
+   - Hóa học: "$H_2SO_4$", "$Fe + 2HCl \\rightarrow FeCl_2 + H_2\\uparrow$"
+   - Vật lý: "$F = ma$", "$E = mc^{2}$", "$v = \\frac{s}{t}$"
+   - Lưu ý: trong JSON, ký tự \\ phải được escape thành \\\\ (VD: "\\\\frac", "\\\\sqrt")
 
 ĐỊNH DẠNG TRẢ VỀ (JSON):
 Trả về một mảng JSON với định dạng sau (KHÔNG có markdown, KHÔNG có \`\`\`json):
 [
   {
-    "question": "Nội dung câu hỏi?",
+    "question": "Nội dung câu hỏi (dùng $...$ cho công thức)?",
     "options": [
-      {"label": "A", "text": "Đáp án A"},
+      {"label": "A", "text": "Đáp án A (dùng $...$ cho công thức)"},
       {"label": "B", "text": "Đáp án B"},
       {"label": "C", "text": "Đáp án C"},
       {"label": "D", "text": "Đáp án D"}
@@ -149,13 +157,20 @@ YÊU CẦU:
 2. Phù hợp với độ khó đã chọn
 3. Có đáp án mẫu chi tiết
 4. Có tiêu chí chấm điểm rõ ràng
+5. QUAN TRỌNG - CÔNG THỨC TOÁN/HÓA/LÝ: Sử dụng cú pháp LaTeX với ký hiệu $ để bao quanh công thức.
+   - Công thức inline: $công_thức$ (VD: $x^{2}+1$, $\\frac{a}{b}$, $\\sqrt{x}$)
+   - Công thức block (căn giữa): $$công_thức$$
+   - VD: "Giải phương trình $x^{2} - 5x + 6 = 0$"
+   - Hóa học: "$H_2SO_4$", "$2H_2 + O_2 \\rightarrow 2H_2O$"
+   - Vật lý: "$F = ma$", "$v = \\frac{s}{t}$"
+   - Lưu ý: trong JSON, ký tự \\ phải được escape thành \\\\ (VD: "\\\\frac", "\\\\sqrt")
 
 ĐỊNH DẠNG TRẢ VỀ (JSON):
 Trả về một mảng JSON với định dạng sau (KHÔNG có markdown, KHÔNG có \`\`\`json):
 [
   {
-    "question": "Nội dung câu hỏi tự luận",
-    "sampleAnswer": "Đáp án mẫu chi tiết",
+    "question": "Nội dung câu hỏi tự luận (dùng $...$ cho công thức)",
+    "sampleAnswer": "Đáp án mẫu chi tiết (dùng $...$ cho công thức)",
     "rubric": [
       "Tiêu chí 1 (2 điểm)",
       "Tiêu chí 2 (3 điểm)"

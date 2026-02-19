@@ -4,6 +4,7 @@ import {
   IoCreateOutline,
   IoCheckmarkCircleOutline,
 } from 'react-icons/io5';
+import MathDisplay from '../../../components/MathDisplay';
 
 const examTypeNames = {
   'multiple-choice': 'Trắc nghiệm',
@@ -113,7 +114,9 @@ const ExamDetailModal = ({ exam, onClose, onDownload }) => {
                       {index + 1}
                     </span>
                     <div className="flex-1">
-                      <p className="font-medium text-gray-800 mb-2">{q.question}</p>
+                      <p className="font-medium text-gray-800 mb-2">
+                        <MathDisplay text={q.question} />
+                      </p>
 
                       {q.type === 'multiple-choice' && q.answers && (
                         <div className="space-y-2 mb-2">
@@ -129,7 +132,7 @@ const ExamDetailModal = ({ exam, onClose, onDownload }) => {
                               <span className="font-medium">
                                 {String.fromCharCode(65 + aIndex)}.
                               </span>
-                              <span>{answer}</span>
+                              <MathDisplay text={answer} />
                               {aIndex === q.correct && (
                                 <IoCheckmarkCircleOutline className="w-4 h-4 ml-auto text-green-600" />
                               )}
