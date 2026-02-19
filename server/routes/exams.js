@@ -1,5 +1,7 @@
 import express from 'express';
 import Exam from '../models/Exam.js';
+import Student from '../models/Student.js';
+import ExamSubmission from '../models/ExamSubmission.js';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/role.js';
 
@@ -58,6 +60,41 @@ router.get('/stats', async (req, res) => {
         completed: counts.completed || 0,
       },
     });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/exams/classes - Lấy danh sách lớp của giáo viên
+router.get('/classes', async (req, res) => {
+  try {
+    const classes = await Student.aggregate([
+      { $match: { teacher: req.user._id, status: 'active' } },
+      { $group: { _id: '$className', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]);
+    res.json({
+      success: true,
+      classes: classes.map((c) => ({ name: c._id, count: c.count })),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/exams/students-by-class - Lấy học sinh theo lớp
+router.get('/students-by-class', async (req, res) => {
+  try {
+    const { className } = req.query;
+    if (!className) {
+      return res.status(400).json({ message: 'className là bắt buộc' });
+    }
+    const students = await Student.find({
+      teacher: req.user._id,
+      className,
+      status: 'active',
+    }).select('name email className');
+    res.json({ success: true, students });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
@@ -159,6 +196,251 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
     res.json({ success: true, exam });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/exams/:id/assign - Giao đề thi
+router.post('/:id/assign', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const { assignmentType, assignedClasses, assignedStudents, deadline } = req.body;
+
+    if (!['class', 'student'].includes(assignmentType)) {
+      return res.status(400).json({ message: 'Loại giao đề không hợp lệ' });
+    }
+
+    let studentCount = 0;
+
+    if (assignmentType === 'class') {
+      if (!assignedClasses || !assignedClasses.length) {
+        return res.status(400).json({ message: 'Chưa chọn lớp nào' });
+      }
+      exam.assignmentType = 'class';
+      exam.assignedClasses = assignedClasses;
+      exam.assignedStudents = [];
+      exam.className = assignedClasses.join(', ');
+
+      studentCount = await Student.countDocuments({
+        teacher: req.user._id,
+        className: { $in: assignedClasses },
+        status: 'active',
+      });
+    } else {
+      if (!assignedStudents || !assignedStudents.length) {
+        return res.status(400).json({ message: 'Chưa chọn học sinh nào' });
+      }
+      exam.assignmentType = 'student';
+      exam.assignedStudents = assignedStudents;
+      exam.assignedClasses = [];
+
+      // Get class names from selected students for display
+      const students = await Student.find({
+        _id: { $in: assignedStudents },
+        teacher: req.user._id,
+      }).select('className');
+      const classNames = [...new Set(students.map((s) => s.className))];
+      exam.className = classNames.join(', ');
+      studentCount = assignedStudents.length;
+    }
+
+    exam.students = studentCount;
+    exam.deadline = deadline ? new Date(deadline) : null;
+    // Tự động publish khi giao đề
+    if (exam.status === 'draft') {
+      exam.status = 'published';
+    }
+    await exam.save();
+
+    res.json({ success: true, exam });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/exams/:id/assignment - Lấy thông tin giao đề
+router.get('/:id/assignment', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id })
+      .populate('assignedStudents', 'name email className');
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    res.json({
+      success: true,
+      assignment: {
+        assignmentType: exam.assignmentType,
+        assignedClasses: exam.assignedClasses,
+        assignedStudents: exam.assignedStudents,
+        studentCount: exam.students,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/exams/:id/submissions - Danh sách bài nộp của đề thi
+router.get('/:id/submissions', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const submissions = await ExamSubmission.find({ exam: exam._id })
+      .populate('student', 'name email className')
+      .sort({ submittedAt: -1 });
+
+    const submissionList = submissions.map((s) => ({
+      _id: s._id,
+      student: s.student,
+      status: s.status,
+      score: s.score,
+      mcScore: s.mcScore || 0,
+      essayScore: s.essayScore || 0,
+      totalPoints: s.totalPoints,
+      totalEssayQuestions: s.totalEssayQuestions || 0,
+      gradedEssayQuestions: s.gradedEssayQuestions || 0,
+      timeSpent: s.timeSpent,
+      submittedAt: s.submittedAt,
+    }));
+
+    res.json({ success: true, submissions: submissionList, exam: { title: exam.title, subject: exam.subject, totalPoints: exam.totalPoints } });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/exams/:id/submissions/:submissionId - Chi tiết bài nộp (để chấm)
+router.get('/:id/submissions/:submissionId', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const submission = await ExamSubmission.findOne({
+      _id: req.params.submissionId,
+      exam: exam._id,
+    }).populate('student', 'name email className');
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Không tìm thấy bài nộp' });
+    }
+
+    // Ghép câu hỏi với câu trả lời
+    const questionsWithAnswers = exam.questions.map((q, index) => {
+      const studentAnswer = submission.answers.find((a) => a.questionIndex === index);
+      return {
+        index,
+        question: q.question,
+        type: q.type,
+        answers: q.answers,
+        correct: q.correct,
+        points: q.points || 1,
+        studentAnswer: studentAnswer?.answer,
+        studentEssay: studentAnswer?.essayAnswer,
+        essayScore: studentAnswer?.essayScore,
+        essayFeedback: studentAnswer?.essayFeedback,
+        isCorrect: q.type === 'multiple-choice' ? studentAnswer?.answer === q.correct : null,
+      };
+    });
+
+    res.json({
+      success: true,
+      submission: {
+        _id: submission._id,
+        student: submission.student,
+        status: submission.status,
+        score: submission.score,
+        mcScore: submission.mcScore || 0,
+        essayScore: submission.essayScore || 0,
+        totalPoints: submission.totalPoints,
+        totalEssayQuestions: submission.totalEssayQuestions || 0,
+        gradedEssayQuestions: submission.gradedEssayQuestions || 0,
+        timeSpent: submission.timeSpent,
+        submittedAt: submission.submittedAt,
+      },
+      questions: questionsWithAnswers,
+      exam: { title: exam.title, subject: exam.subject, totalPoints: exam.totalPoints },
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PATCH /api/exams/:id/submissions/:submissionId/grade - Chấm bài tự luận
+router.patch('/:id/submissions/:submissionId/grade', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const submission = await ExamSubmission.findOne({
+      _id: req.params.submissionId,
+      exam: exam._id,
+    });
+
+    if (!submission) {
+      return res.status(404).json({ message: 'Không tìm thấy bài nộp' });
+    }
+
+    const { grades } = req.body;
+    // grades: [{ questionIndex, score, feedback }]
+
+    if (!grades || !Array.isArray(grades)) {
+      return res.status(400).json({ message: 'Dữ liệu chấm điểm không hợp lệ' });
+    }
+
+    let totalEssayScore = 0;
+    let gradedCount = 0;
+
+    grades.forEach(({ questionIndex, score, feedback }) => {
+      const answerIdx = submission.answers.findIndex((a) => a.questionIndex === questionIndex);
+      if (answerIdx !== -1) {
+        submission.answers[answerIdx].essayScore = score;
+        submission.answers[answerIdx].essayFeedback = feedback || '';
+        totalEssayScore += score;
+        gradedCount++;
+      }
+    });
+
+    // Tính lại tổng điểm tự luận theo thang totalPoints
+    const totalQuestionPoints = exam.questions.reduce((sum, q) => sum + (q.points || 1), 0);
+    const essayScoreScaled = totalQuestionPoints > 0
+      ? Math.round((totalEssayScore / totalQuestionPoints) * exam.totalPoints * 100) / 100
+      : 0;
+
+    submission.essayScore = essayScoreScaled;
+    submission.gradedEssayQuestions = gradedCount;
+    submission.score = Math.round(((submission.mcScore || 0) + essayScoreScaled) * 100) / 100;
+    submission.markModified('answers');
+
+    // Nếu tất cả câu tự luận đã chấm → graded
+    if (gradedCount >= submission.totalEssayQuestions) {
+      submission.status = 'graded';
+      // Cập nhật exam graded count
+      await Exam.findByIdAndUpdate(exam._id, { $inc: { graded: 1 } });
+    }
+
+    await submission.save();
+
+    res.json({ success: true, submission: {
+      _id: submission._id,
+      score: submission.score,
+      mcScore: submission.mcScore,
+      essayScore: submission.essayScore,
+      status: submission.status,
+      gradedEssayQuestions: submission.gradedEssayQuestions,
+    }});
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }

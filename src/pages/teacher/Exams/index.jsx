@@ -10,6 +10,8 @@ import ExamDetailModal from './ExamDetailModal';
 import ExamEditModal from './ExamEditModal';
 import CreateExamModal from './CreateExamModal';
 import ImportExamModal from './ImportExamModal';
+import AssignExamModal from './AssignExamModal';
+import GradeExamModal from './GradeExamModal';
 import { exportExamToExcel } from './examExcel';
 
 const API = '/api';
@@ -36,6 +38,8 @@ const TeacherExams = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [detailExam, setDetailExam] = useState(null);
   const [editExam, setEditExam] = useState(null);
+  const [assignExam, setAssignExam] = useState(null);
+  const [gradeExam, setGradeExam] = useState(null);
 
   const fetchExams = useCallback(async () => {
     try {
@@ -205,6 +209,8 @@ const TeacherExams = () => {
             onStatusChange={handleStatusChange}
             onViewDetail={handleViewDetail}
             onDownload={handleDownload}
+            onAssign={setAssignExam}
+            onGrade={setGradeExam}
           />
         ))}
       </div>
@@ -271,6 +277,25 @@ const TeacherExams = () => {
             setEditExam(null);
             refreshData();
           }}
+        />
+      )}
+
+      {assignExam && (
+        <AssignExamModal
+          exam={assignExam}
+          onClose={() => setAssignExam(null)}
+          onAssigned={() => {
+            setAssignExam(null);
+            refreshData();
+          }}
+        />
+      )}
+
+      {gradeExam && (
+        <GradeExamModal
+          exam={gradeExam}
+          onClose={() => setGradeExam(null)}
+          onGraded={refreshData}
         />
       )}
     </div>

@@ -16,6 +16,8 @@ import TeacherGames from "../pages/teacher/Games/index.jsx";
 import TeacherStudents from "../pages/teacher/Students/index.jsx";
 import TeacherStatistics from "../pages/teacher/Statistics/index.jsx";
 import StudentLayout from "../components/studentLayout/StudentLayout";
+import StudentClassroom from "../pages/student/Classroom/index.jsx";
+import TakeExam from "../pages/student/TakeExam/index.jsx";
 
 // Routes công khai
 const publicRoutes = [
@@ -102,6 +104,18 @@ const privateRoutes = [
   {
     path: "/student/dashboard",
     component: StudentDashboard,
+    layout: StudentLayout,
+    allowedRoles: ['student']
+  },
+  {
+    path: "/student/classroom",
+    component: StudentClassroom,
+    layout: StudentLayout,
+    allowedRoles: ['student']
+  },
+  {
+    path: "/student/exam/:id",
+    component: TakeExam,
     layout: StudentLayout,
     allowedRoles: ['student']
   },

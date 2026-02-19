@@ -1,0 +1,325 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FiUser,
+  FiMail,
+  FiClock,
+  FiFileText,
+  FiUsers,
+  FiAlertCircle,
+  FiCheckCircle,
+  FiPlay,
+} from 'react-icons/fi';
+import { IoSchoolOutline } from 'react-icons/io5';
+
+const API = '/api';
+
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('authToken');
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+const getDifficultyLabel = (d) => {
+  switch (d) {
+    case 'easy': return 'Dễ';
+    case 'medium': return 'Trung bình';
+    case 'hard': return 'Khó';
+    default: return '';
+  }
+};
+
+const getDifficultyColor = (d) => {
+  switch (d) {
+    case 'easy': return 'bg-green-100 text-green-700';
+    case 'medium': return 'bg-yellow-100 text-yellow-700';
+    case 'hard': return 'bg-red-100 text-red-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+};
+
+const getTimeRemaining = (deadline) => {
+  if (!deadline) return null;
+  const now = new Date();
+  const dl = new Date(deadline);
+  const diff = dl - now;
+  if (diff <= 0) return { text: 'Đã hết hạn', urgent: true };
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0) return { text: `Còn ${days} ngày ${hours} giờ`, urgent: days <= 1 };
+  if (hours > 0) return { text: `Còn ${hours} giờ ${minutes} phút`, urgent: hours <= 3 };
+  return { text: `Còn ${minutes} phút`, urgent: true };
+};
+
+const getSubmissionStatus = (exam) => {
+  if (!exam.submission) {
+    if (exam.deadline && new Date(exam.deadline) < new Date()) {
+      return { label: 'Quá hạn', color: 'bg-red-100 text-red-700', icon: FiAlertCircle };
+    }
+    return { label: 'Chưa làm', color: 'bg-blue-100 text-blue-700', icon: FiPlay };
+  }
+  switch (exam.submission.status) {
+    case 'in_progress':
+      return { label: 'Đang làm', color: 'bg-orange-100 text-orange-700', icon: FiClock };
+    case 'submitted':
+      return { label: 'Đã nộp', color: 'bg-purple-100 text-purple-700', icon: FiCheckCircle };
+    case 'graded':
+      return { label: 'Đã chấm', color: 'bg-green-100 text-green-700', icon: FiCheckCircle };
+    default:
+      return { label: 'Chưa làm', color: 'bg-blue-100 text-blue-700', icon: FiPlay };
+  }
+};
+
+const StudentClassroom = () => {
+  const navigate = useNavigate();
+  const [classroom, setClassroom] = useState(null);
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [classRes, examsRes] = await Promise.all([
+          fetch(`${API}/student-portal/classroom`, { headers: getAuthHeaders() }),
+          fetch(`${API}/student-portal/exams`, { headers: getAuthHeaders() }),
+        ]);
+        const classData = await classRes.json();
+        const examsData = await examsRes.json();
+
+        if (classData.success) setClassroom(classData.classroom);
+        if (examsData.success) setExams(examsData.exams);
+      } catch (err) {
+        console.error('Error fetching classroom data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleTakeExam = (examId) => {
+    navigate(`/student/exam/${examId}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!classroom) {
+    return (
+      <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+        <FiAlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Chưa được thêm vào lớp</h3>
+        <p className="text-gray-500">Liên hệ giáo viên để được thêm vào lớp học.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Lớp học của tôi</h1>
+        <p className="text-gray-600">Xem thông tin lớp và làm bài tập</p>
+      </div>
+
+      {/* Class Info + Teacher */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Class Info */}
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
+              <IoSchoolOutline className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">{classroom.className}</h2>
+              <p className="text-sm text-gray-500">{classroom.totalStudents} học sinh</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <FiUser className="w-4 h-4" />
+            <span>Học sinh: <strong>{classroom.studentName}</strong></span>
+          </div>
+        </div>
+
+        {/* Teacher Info */}
+        {classroom.teacher && (
+          <div className="bg-white rounded-xl border border-gray-100 p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center text-white font-bold text-lg">
+                {classroom.teacher.name?.charAt(0) || 'G'}
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">Giáo viên</h2>
+                <p className="text-sm text-gray-500">Thông tin liên hệ</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <FiUser className="w-4 h-4" />
+                <span>{classroom.teacher.name}</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <FiMail className="w-4 h-4" />
+                <span>{classroom.teacher.email}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Classmates */}
+      {classroom.classmates && classroom.classmates.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FiUsers className="w-5 h-5 text-gray-600" />
+            <h2 className="text-lg font-bold text-gray-800">
+              Bạn cùng lớp ({classroom.classmates.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {classroom.classmates.map((mate) => (
+              <div key={mate._id} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium text-sm">
+                  {mate.name?.charAt(0)}
+                </div>
+                <span className="text-sm text-gray-700 truncate">{mate.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Exams / Assignments */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <FiFileText className="w-5 h-5 text-gray-600" />
+          <h2 className="text-lg font-bold text-gray-800">Bài tập ({exams.length})</h2>
+        </div>
+
+        {exams.length === 0 ? (
+          <div className="bg-white rounded-xl border border-gray-100 p-12 text-center">
+            <FiFileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Chưa có bài tập</h3>
+            <p className="text-gray-500">Giáo viên chưa giao bài tập nào cho bạn.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {exams.map((exam) => {
+              const status = getSubmissionStatus(exam);
+              const StatusIcon = status.icon;
+              const isOverdue = exam.deadline && new Date(exam.deadline) < new Date();
+              const canTakeExam =
+                !exam.submission ||
+                (exam.submission.status === 'in_progress' && !isOverdue);
+
+              return (
+                <div
+                  key={exam._id}
+                  className="bg-white rounded-xl border border-gray-100 p-6 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-800">{exam.title}</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${status.color}`}>
+                          <StatusIcon className="w-3 h-3 inline mr-1" />
+                          {status.label}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getDifficultyColor(exam.difficulty)}`}>
+                          {getDifficultyLabel(exam.difficulty)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-sm text-gray-500 mb-3">
+                        <span className="flex items-center gap-1">
+                          <FiFileText className="w-4 h-4" />
+                          {exam.subject}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FiClock className="w-4 h-4" />
+                          {exam.duration} phút
+                        </span>
+                        <span>{exam.totalQuestions} câu</span>
+                        <span>{exam.totalPoints} điểm</span>
+                      </div>
+
+                      {exam.deadline && (() => {
+                        const timeRemaining = getTimeRemaining(exam.deadline);
+                        return (
+                          <div className="flex items-center gap-3 text-sm mb-1">
+                            <span className={isOverdue ? 'text-red-600' : 'text-gray-500'}>
+                              <FiClock className="w-4 h-4 inline mr-1" />
+                              Hạn nộp: {new Date(exam.deadline).toLocaleDateString('vi-VN')}{' '}
+                              {new Date(exam.deadline).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {timeRemaining && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                                timeRemaining.urgent ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                              }`}>
+                                {timeRemaining.text}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* Điểm chi tiết */}
+                      {exam.submission && (exam.submission.status === 'graded' || exam.submission.status === 'submitted') && (
+                        <div className="mt-2 flex flex-wrap items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm text-gray-600">Tổng điểm:</span>
+                            <span className="text-lg font-bold text-emerald-600">
+                              {exam.submission.score}/{exam.submission.totalPoints}
+                            </span>
+                          </div>
+                          {exam.submission.mcScore > 0 && (
+                            <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs rounded-lg font-medium">
+                              Trắc nghiệm: {exam.submission.mcScore}
+                            </span>
+                          )}
+                          {exam.submission.totalEssayQuestions > 0 && (
+                            <span className={`px-2 py-1 text-xs rounded-lg font-medium ${
+                              exam.submission.gradedEssayQuestions >= exam.submission.totalEssayQuestions
+                                ? 'bg-green-50 text-green-700'
+                                : 'bg-orange-50 text-orange-700'
+                            }`}>
+                              Tự luận: {exam.submission.gradedEssayQuestions >= exam.submission.totalEssayQuestions
+                                ? exam.submission.essayScore
+                                : `Chưa chấm ${exam.submission.totalEssayQuestions - exam.submission.gradedEssayQuestions} câu`}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      {canTakeExam && (
+                        <button
+                          onClick={() => handleTakeExam(exam._id)}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-600 transition-all"
+                        >
+                          <FiPlay className="w-4 h-4" />
+                          {exam.submission?.status === 'in_progress' ? 'Tiếp tục' : 'Làm bài'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default StudentClassroom;

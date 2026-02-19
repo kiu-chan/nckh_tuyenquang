@@ -3,11 +3,6 @@ import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   FiHome, 
-  FiBook, 
-  FiFileText, 
-  FiCheckSquare,
-  FiAward,
-  FiBarChart2,
   FiSettings,
   FiLogOut,
   FiBell,
@@ -18,11 +13,6 @@ import {
 } from 'react-icons/fi';
 import { 
   IoBookOutline,
-  IoDocumentTextOutline,
-  IoGameControllerOutline,
-  IoTrophyOutline,
-  IoSchoolOutline,
-  IoCalendarOutline
 } from 'react-icons/io5';
 
 const StudentLayout = ({ children }) => {
@@ -34,13 +24,7 @@ const StudentLayout = ({ children }) => {
 
   const menuItems = [
     { path: '/student/dashboard', icon: FiHome, label: 'Trang chủ' },
-    { path: '/student/courses', icon: IoSchoolOutline, label: 'Khóa học' },
-    { path: '/student/assignments', icon: FiCheckSquare, label: 'Bài tập' },
-    { path: '/student/exams', icon: IoDocumentTextOutline, label: 'Bài kiểm tra' },
-    { path: '/student/games', icon: IoGameControllerOutline, label: 'Trò chơi' },
-    { path: '/student/schedule', icon: IoCalendarOutline, label: 'Lịch học' },
-    { path: '/student/achievements', icon: IoTrophyOutline, label: 'Thành tích' },
-    { path: '/student/progress', icon: FiBarChart2, label: 'Tiến độ' },
+    { path: '/student/classroom', icon: IoBookOutline, label: 'Lớp học' },
     { path: '/student/settings', icon: FiSettings, label: 'Cài đặt' }
   ];
 

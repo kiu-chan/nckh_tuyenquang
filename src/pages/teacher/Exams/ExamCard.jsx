@@ -51,7 +51,7 @@ const getDifficultyBadge = (difficulty) => {
   }
 };
 
-const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewDetail, onDownload }) => {
+const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewDetail, onDownload, onAssign, onGrade }) => {
   const statusBadge = getStatusBadge(exam.status);
   const difficultyBadge = getDifficultyBadge(exam.difficulty);
   const typeInfo = examTypes.find((t) => t.id === exam.type);
@@ -121,13 +121,42 @@ const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewD
             </div>
           )}
 
-          {exam.className && (
+          {exam.assignmentType && exam.assignmentType !== 'none' ? (
+            <div className="p-3 bg-purple-50 rounded-lg">
+              <div className="flex items-center gap-2 text-purple-700 mb-1">
+                <FiUsers className="w-4 h-4" />
+                <span className="text-xs font-medium">
+                  {exam.assignmentType === 'class' ? 'Lớp được giao' : 'Giao theo học sinh'}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-purple-900">
+                {exam.assignmentType === 'class'
+                  ? (exam.assignedClasses || []).join(', ')
+                  : `${exam.students} học sinh`}
+              </p>
+            </div>
+          ) : exam.className ? (
             <div className="p-3 bg-purple-50 rounded-lg">
               <div className="flex items-center gap-2 text-purple-700 mb-1">
                 <FiUsers className="w-4 h-4" />
                 <span className="text-xs font-medium">Lớp</span>
               </div>
               <p className="text-sm font-semibold text-purple-900">{exam.className}</p>
+            </div>
+          ) : null}
+
+          {exam.deadline && (
+            <div className="p-3 bg-red-50 rounded-lg">
+              <div className="flex items-center gap-2 text-red-700 mb-1">
+                <FiClock className="w-4 h-4" />
+                <span className="text-xs font-medium">Hạn nộp</span>
+              </div>
+              <p className="text-sm font-semibold text-red-900">
+                {new Date(exam.deadline).toLocaleDateString('vi-VN')}
+              </p>
+              <p className="text-xs text-red-600">
+                {new Date(exam.deadline).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
           )}
 
@@ -179,11 +208,11 @@ const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewD
           {exam.status === 'draft' ? (
             <>
               <button
-                onClick={() => onStatusChange(exam._id, 'published')}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                onClick={() => onAssign(exam)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
               >
-                <FiCheckCircle className="w-4 h-4" />
-                <span>Phát hành</span>
+                <FiShare2 className="w-4 h-4" />
+                <span>Giao đề</span>
               </button>
               <button
                 onClick={() => onEdit(exam)}
@@ -223,14 +252,32 @@ const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewD
                 <FiEye className="w-4 h-4" />
                 <span>Xem chi tiết</span>
               </button>
-              {exam.status === 'published' && (
+              {exam.submitted > 0 && (
                 <button
-                  onClick={() => onStatusChange(exam._id, 'completed')}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  onClick={() => onGrade(exam)}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
                 >
                   <FiCheckCircle className="w-4 h-4" />
-                  <span>Kết thúc</span>
+                  <span>Chấm bài ({exam.submitted})</span>
                 </button>
+              )}
+              {exam.status === 'published' && (
+                <>
+                  <button
+                    onClick={() => onAssign(exam)}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                  >
+                    <FiShare2 className="w-4 h-4" />
+                    <span>Giao đề</span>
+                  </button>
+                  <button
+                    onClick={() => onStatusChange(exam._id, 'completed')}
+                    className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                  >
+                    <FiCheckCircle className="w-4 h-4" />
+                    <span>Kết thúc</span>
+                  </button>
+                </>
               )}
               <button
                 onClick={() => onDownload(exam)}

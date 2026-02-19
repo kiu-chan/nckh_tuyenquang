@@ -45,6 +45,21 @@ const examSchema = new mongoose.Schema(
     scheduledTime: { type: String },
     className: { type: String },
 
+    // Assignment
+    assignmentType: {
+      type: String,
+      enum: ['none', 'class', 'student'],
+      default: 'none',
+    },
+    deadline: { type: Date },
+    assignedClasses: [{ type: String }],
+    assignedStudents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Student',
+      },
+    ],
+
     // Tracking
     students: { type: Number, default: 0 },
     submitted: { type: Number, default: 0 },
