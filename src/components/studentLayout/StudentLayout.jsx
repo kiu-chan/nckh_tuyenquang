@@ -9,7 +9,8 @@ import {
   FiSearch,
   FiMenu,
   FiX,
-  FiClock
+  FiClock,
+  FiMessageCircle
 } from 'react-icons/fi';
 import { 
   IoBookOutline,
@@ -25,6 +26,7 @@ const StudentLayout = ({ children }) => {
   const menuItems = [
     { path: '/student/dashboard', icon: FiHome, label: 'Trang chủ' },
     { path: '/student/classroom', icon: IoBookOutline, label: 'Lớp học' },
+    { path: '/student/chat', icon: FiMessageCircle, label: 'Hỏi AI' },
     { path: '/student/settings', icon: FiSettings, label: 'Cài đặt' }
   ];
 
