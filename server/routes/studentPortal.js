@@ -309,4 +309,114 @@ router.post('/exams/:id/submit', async (req, res) => {
   }
 });
 
+// GET /api/student-portal/dashboard - Tổng quan trang chủ học sinh
+router.get('/dashboard', async (req, res) => {
+  try {
+    const student = await getStudent(req.user._id);
+    if (!student) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin học sinh' });
+    }
+
+    const teacher = await User.findById(student.teacher).select('name');
+
+    // Lấy tất cả bài thi được giao cho học sinh
+    const exams = await Exam.find({
+      status: 'published',
+      teacher: student.teacher,
+      $or: [
+        { assignmentType: 'class', assignedClasses: student.className },
+        { assignmentType: 'student', assignedStudents: student._id },
+      ],
+    }).select('_id title subject type difficulty duration totalPoints deadline scheduledDate scheduledTime').lean();
+
+    const examIds = exams.map((e) => e._id);
+
+    // Lấy tất cả submissions của học sinh
+    const submissions = await ExamSubmission.find({
+      student: student._id,
+      exam: { $in: examIds },
+    }).select('exam status score totalPoints submittedAt').lean();
+
+    const submissionMap = {};
+    submissions.forEach((s) => { submissionMap[s.exam.toString()] = s; });
+
+    // Phân loại
+    const completedSubmissions = submissions.filter((s) => s.status === 'submitted' || s.status === 'graded');
+    const pendingExams = exams.filter((e) => !submissionMap[e._id.toString()]);
+
+    // Điểm trung bình
+    const gradedSubmissions = submissions.filter(
+      (s) => s.status === 'graded' && s.totalPoints > 0
+    );
+    const avgScore =
+      gradedSubmissions.length > 0
+        ? Math.round(
+            (gradedSubmissions.reduce((sum, s) => sum + (s.score / s.totalPoints) * 10, 0) /
+              gradedSubmissions.length) *
+              10
+          ) / 10
+        : null;
+
+    // Bài thi sắp tới (chưa làm, sắp đến deadline hoặc có scheduled)
+    const now = new Date();
+    const upcoming = pendingExams
+      .filter((e) => !e.deadline || new Date(e.deadline) > now)
+      .sort((a, b) => {
+        const da = a.deadline ? new Date(a.deadline) : new Date('2099-01-01');
+        const db = b.deadline ? new Date(b.deadline) : new Date('2099-01-01');
+        return da - db;
+      })
+      .slice(0, 5)
+      .map((e) => ({
+        _id: e._id,
+        title: e.title,
+        subject: e.subject,
+        type: e.type,
+        difficulty: e.difficulty,
+        duration: e.duration,
+        totalPoints: e.totalPoints,
+        deadline: e.deadline,
+      }));
+
+    // Bài nộp gần đây nhất
+    const recentSubmissions = await ExamSubmission.find({
+      student: student._id,
+      status: { $in: ['submitted', 'graded'] },
+    })
+      .sort({ submittedAt: -1 })
+      .limit(5)
+      .populate('exam', 'title subject totalPoints')
+      .select('exam status score totalPoints submittedAt')
+      .lean();
+
+    res.json({
+      success: true,
+      student: {
+        name: student.name,
+        className: student.className,
+        teacher: teacher ? teacher.name : null,
+      },
+      stats: {
+        totalExams: exams.length,
+        completedExams: completedSubmissions.length,
+        pendingExams: pendingExams.length,
+        avgScore,
+      },
+      upcomingExams: upcoming,
+      recentSubmissions: recentSubmissions.map((s) => ({
+        _id: s._id,
+        examTitle: s.exam?.title || 'Đề thi',
+        subject: s.exam?.subject || '',
+        status: s.status,
+        score: s.score,
+        totalPoints: s.totalPoints || s.exam?.totalPoints || 10,
+        submittedAt: s.submittedAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
 export default router;
+
