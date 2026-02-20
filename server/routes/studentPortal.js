@@ -2,6 +2,7 @@ import express from 'express';
 import Student from '../models/Student.js';
 import Exam from '../models/Exam.js';
 import ExamSubmission from '../models/ExamSubmission.js';
+import StudentGame from '../models/StudentGame.js';
 import User from '../models/User.js';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/role.js';
@@ -415,6 +416,85 @@ router.get('/dashboard', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// ==================== GAMES ====================
+
+// GET /api/student-portal/games - Danh sách bộ thẻ
+router.get('/games', async (req, res) => {
+  try {
+    const { type } = req.query;
+    const filter = { student: req.user._id };
+    if (type) filter.type = type;
+
+    const games = await StudentGame.find(filter).sort({ updatedAt: -1 });
+    const totalPlays = games.reduce((sum, g) => sum + g.plays, 0);
+
+    res.json({ success: true, games, stats: { total: games.length, totalPlays } });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/student-portal/games - Tạo bộ thẻ mới
+router.post('/games', async (req, res) => {
+  try {
+    const { title, type, cards, gridSize } = req.body;
+    const game = await StudentGame.create({
+      student: req.user._id,
+      title,
+      type,
+      cards,
+      gridSize: gridSize || 4,
+    });
+    res.status(201).json({ success: true, game });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi tạo trò chơi', error: error.message });
+  }
+});
+
+// PUT /api/student-portal/games/:id - Sửa bộ thẻ
+router.put('/games/:id', async (req, res) => {
+  try {
+    const game = await StudentGame.findOneAndUpdate(
+      { _id: req.params.id, student: req.user._id },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!game) return res.status(404).json({ message: 'Không tìm thấy trò chơi' });
+    res.json({ success: true, game });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi cập nhật', error: error.message });
+  }
+});
+
+// DELETE /api/student-portal/games/:id - Xóa bộ thẻ
+router.delete('/games/:id', async (req, res) => {
+  try {
+    const game = await StudentGame.findOneAndDelete({ _id: req.params.id, student: req.user._id });
+    if (!game) return res.status(404).json({ message: 'Không tìm thấy trò chơi' });
+    res.json({ success: true, message: 'Đã xóa trò chơi' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi xóa', error: error.message });
+  }
+});
+
+// POST /api/student-portal/games/:id/play - Lưu kết quả chơi
+router.post('/games/:id/play', async (req, res) => {
+  try {
+    const { time, score } = req.body;
+    const game = await StudentGame.findOne({ _id: req.params.id, student: req.user._id });
+    if (!game) return res.status(404).json({ message: 'Không tìm thấy trò chơi' });
+
+    game.plays += 1;
+    if (time && (game.bestTime === null || time < game.bestTime)) game.bestTime = time;
+    if (score !== undefined && (game.bestScore === null || score > game.bestScore)) game.bestScore = score;
+    await game.save();
+
+    res.json({ success: true, game });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi lưu kết quả', error: error.message });
   }
 });
 

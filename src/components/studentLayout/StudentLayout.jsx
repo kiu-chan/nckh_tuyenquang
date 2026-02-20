@@ -12,8 +12,9 @@ import {
   FiClock,
   FiMessageCircle
 } from 'react-icons/fi';
-import { 
+import {
   IoBookOutline,
+  IoGameControllerOutline,
 } from 'react-icons/io5';
 
 const StudentLayout = ({ children }) => {
@@ -28,6 +29,7 @@ const StudentLayout = ({ children }) => {
     { path: '/student/dashboard', icon: FiHome, label: 'Trang chủ' },
     { path: '/student/classroom', icon: IoBookOutline, label: 'Lớp học' },
     { path: '/student/chat', icon: FiMessageCircle, label: 'Hỏi AI' },
+    { path: '/student/games', icon: IoGameControllerOutline, label: 'Trò chơi' },
     { path: '/student/settings', icon: FiSettings, label: 'Cài đặt' }
   ];
 

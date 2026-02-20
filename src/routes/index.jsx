@@ -19,6 +19,7 @@ import StudentLayout from "../components/studentLayout/StudentLayout";
 import StudentClassroom from "../pages/student/Classroom/index.jsx";
 import TakeExam from "../pages/student/TakeExam/index.jsx";
 import StudentChat from "../pages/student/Chat/index.jsx";
+import StudentGames from "../pages/student/Games/index.jsx";
 
 // Routes công khai
 const publicRoutes = [
@@ -123,6 +124,12 @@ const privateRoutes = [
   {
     path: "/student/chat",
     component: StudentChat,
+    layout: StudentLayout,
+    allowedRoles: ['student']
+  },
+  {
+    path: "/student/games",
+    component: StudentGames,
     layout: StudentLayout,
     allowedRoles: ['student']
   },

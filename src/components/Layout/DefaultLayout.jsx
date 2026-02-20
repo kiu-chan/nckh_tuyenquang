@@ -26,7 +26,6 @@ const menuItems = [
   { name: 'Trang chủ', icon: FiHome, path: '/' },
   { name: 'Giới thiệu', icon: FiInfo, path: '/about' },
   { name: 'Tính năng', icon: IoSparklesOutline, path: '/features' },
-  { name: 'Bảng giá', icon: IoPricetagsOutline, path: '/pricing' },
   { name: 'Hướng dẫn', icon: FiHelpCircle, path: '/guide' },
   { name: 'Liên hệ', icon: FiMail, path: '/contact' },
 ];
@@ -301,7 +300,6 @@ function DefaultLayout({ children }) {
               <ul className="space-y-2 text-sm">
                 <li><Link to="/about" className="hover:text-emerald-400 transition-colors">Giới thiệu</Link></li>
                 <li><Link to="/features" className="hover:text-emerald-400 transition-colors">Tính năng</Link></li>
-                <li><Link to="/pricing" className="hover:text-emerald-400 transition-colors">Bảng giá</Link></li>
                 <li><Link to="/guide" className="hover:text-emerald-400 transition-colors">Hướng dẫn</Link></li>
               </ul>
             </div>
