@@ -59,12 +59,30 @@ const StudentChat = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const chatRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const inputRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   };
+
+  // Tắt scroll của html/body/main để chat không đẩy chiều cao trang
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const main = document.querySelector('main');
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    if (main) main.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = '';
+      body.style.overflow = '';
+      if (main) main.style.overflow = '';
+    };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -147,9 +165,9 @@ const StudentChat = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] max-w-4xl mx-auto">
+    <div className="flex flex-col flex-1 min-h-0 -m-6">
       {/* Header */}
-      <div className="bg-white rounded-t-2xl border border-gray-200 border-b-0 px-6 py-4 flex-shrink-0">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
@@ -178,7 +196,7 @@ const StudentChat = () => {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto bg-gray-50 border-x border-gray-200 px-4 py-6 space-y-4">
+      <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto bg-gray-50 px-4 py-6 space-y-4">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4">
@@ -250,8 +268,8 @@ const StudentChat = () => {
                     {msg.role === 'user' ? (
                       <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
                     ) : (
-                      <div className="text-sm leading-relaxed">
-                        <MathDisplay text={msg.text} />
+                      <div className="text-sm leading-relaxed overflow-x-auto">
+                        <MathDisplay text={msg.text} block />
                       </div>
                     )}
                   </div>
@@ -276,8 +294,6 @@ const StudentChat = () => {
                 </div>
               </div>
             )}
-
-            <div ref={messagesEndRef} />
           </>
         )}
       </div>
@@ -285,7 +301,7 @@ const StudentChat = () => {
       {/* Input Area */}
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-b-2xl border border-gray-200 border-t-0 px-4 py-3 flex-shrink-0"
+        className="bg-white border-t border-gray-200 px-4 py-3 flex-shrink-0"
       >
         <div className="flex items-end gap-3">
           <div className="flex-1">
