@@ -27,10 +27,10 @@ router.get('/classroom', async (req, res) => {
     // Lấy thông tin giáo viên
     const teacher = await User.findById(student.teacher).select('name email avatar');
 
-    // Lấy bạn cùng lớp
+    // Lấy bạn cùng lớp (tìm học sinh có chung ít nhất 1 lớp)
     const classmates = await Student.find({
       teacher: student.teacher,
-      className: student.className,
+      className: { $in: student.className },
       status: 'active',
       _id: { $ne: student._id },
     }).select('name email');
@@ -66,7 +66,7 @@ router.get('/exams', async (req, res) => {
       status: 'published',
       teacher: student.teacher,
       $or: [
-        { assignmentType: 'class', assignedClasses: student.className },
+        { assignmentType: 'class', assignedClasses: { $in: student.className } },
         { assignmentType: 'student', assignedStudents: student._id },
       ],
     })
@@ -133,7 +133,7 @@ router.get('/exams/:id', async (req, res) => {
       status: 'published',
       teacher: student.teacher,
       $or: [
-        { assignmentType: 'class', assignedClasses: student.className },
+        { assignmentType: 'class', assignedClasses: { $in: student.className } },
         { assignmentType: 'student', assignedStudents: student._id },
       ],
     });
@@ -325,7 +325,7 @@ router.get('/dashboard', async (req, res) => {
       status: 'published',
       teacher: student.teacher,
       $or: [
-        { assignmentType: 'class', assignedClasses: student.className },
+        { assignmentType: 'class', assignedClasses: { $in: student.className } },
         { assignmentType: 'student', assignedStudents: student._id },
       ],
     }).select('_id title subject type difficulty duration totalPoints deadline scheduledDate scheduledTime').lean();

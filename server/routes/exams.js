@@ -70,6 +70,7 @@ router.get('/classes', async (req, res) => {
   try {
     const classes = await Student.aggregate([
       { $match: { teacher: req.user._id, status: 'active' } },
+      { $unwind: '$className' },
       { $group: { _id: '$className', count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]);
@@ -244,7 +245,7 @@ router.post('/:id/assign', async (req, res) => {
         _id: { $in: assignedStudents },
         teacher: req.user._id,
       }).select('className');
-      const classNames = [...new Set(students.map((s) => s.className))];
+      const classNames = [...new Set(students.flatMap((s) => Array.isArray(s.className) ? s.className : [s.className]))];
       exam.className = classNames.join(', ');
       studentCount = assignedStudents.length;
     }

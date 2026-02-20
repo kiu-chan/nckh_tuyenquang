@@ -101,12 +101,18 @@ const StudentDashboard = () => {
           <IoSparkles className="w-6 h-6 text-yellow-300" />
           <h1 className="text-2xl font-bold">Xin chào, {student.name}!</h1>
         </div>
-        <p className="text-blue-100 text-sm">
-          Lớp <span className="font-semibold text-white">{student.className}</span>
+        <div className="flex flex-wrap items-center gap-2 mt-1">
+          {(Array.isArray(student.className) ? student.className : [student.className]).map((cn) => (
+            <span key={cn} className="px-2.5 py-0.5 bg-white/20 text-white text-sm font-medium rounded-lg">
+              {cn}
+            </span>
+          ))}
           {student.teacher && (
-            <> &middot; GV: <span className="font-semibold text-white">{student.teacher}</span></>
+            <span className="text-blue-100 text-sm">
+              &middot; GV: <span className="font-semibold text-white">{student.teacher}</span>
+            </span>
           )}
-        </p>
+        </div>
         {stats.pendingExams > 0 && (
           <p className="mt-3 text-blue-100 text-sm">
             Bạn còn <span className="text-white font-bold">{stats.pendingExams} đề thi</span> chưa làm.

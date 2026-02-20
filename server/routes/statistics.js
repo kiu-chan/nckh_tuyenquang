@@ -107,15 +107,18 @@ router.get('/class-comparison', async (req, res) => {
     const colors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500', 'bg-red-500', 'bg-yellow-500'];
 
     students.forEach(s => {
-      if (!classMap[s.className]) {
-        classMap[s.className] = { scores: [], attendances: [], assignmentsCompleted: 0, assignmentsTotal: 0, count: 0 };
-      }
-      const cls = classMap[s.className];
-      cls.scores.push(s.score || 0);
-      cls.attendances.push(s.attendance || 0);
-      cls.assignmentsCompleted += s.assignmentsCompleted || 0;
-      cls.assignmentsTotal += s.assignmentsTotal || 0;
-      cls.count++;
+      const classNames = Array.isArray(s.className) ? s.className : [s.className];
+      classNames.forEach(cn => {
+        if (!classMap[cn]) {
+          classMap[cn] = { scores: [], attendances: [], assignmentsCompleted: 0, assignmentsTotal: 0, count: 0 };
+        }
+        const cls = classMap[cn];
+        cls.scores.push(s.score || 0);
+        cls.attendances.push(s.attendance || 0);
+        cls.assignmentsCompleted += s.assignmentsCompleted || 0;
+        cls.assignmentsTotal += s.assignmentsTotal || 0;
+        cls.count++;
+      });
     });
 
     const comparison = Object.entries(classMap).map(([name, data], index) => ({
@@ -153,7 +156,7 @@ router.get('/top-students', async (req, res) => {
     const result = topStudents.map((s, index) => ({
       id: s._id,
       name: s.name,
-      class: s.className,
+      class: Array.isArray(s.className) ? s.className.join(', ') : s.className,
       score: s.score || 0,
       rank: index + 1,
       attendance: s.attendance || 0,

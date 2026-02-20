@@ -1,33 +1,30 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import {
   FiSearch,
-  FiTrash2,
-  FiMail,
-  FiPhone,
-  FiMapPin,
   FiGrid,
   FiList,
   FiPlus,
-  FiX,
   FiDownload,
   FiUpload,
   FiAward,
   FiTrendingUp,
-  FiBookOpen,
   FiLoader,
+  FiX,
   FiCheck,
-  FiUserPlus,
-  FiLock,
-  FiEye,
-  FiEyeOff,
+  FiAlertCircle,
+  FiFile,
 } from 'react-icons/fi';
 import {
   IoPersonOutline,
   IoSchoolOutline,
-  IoCalendarOutline,
   IoCheckmarkCircleOutline,
-  IoCloseCircleOutline,
 } from 'react-icons/io5';
+
+import StudentCard from './StudentCard';
+import StudentTable from './StudentTable';
+import AddStudentModal from './AddStudentModal';
+import StudentDetailModal from './StudentDetailModal';
 
 const API_URL = '/api/students';
 
@@ -37,20 +34,6 @@ const getAuthHeaders = () => {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
   };
-};
-
-const initialFormData = {
-  name: '',
-  gender: 'Nam',
-  dateOfBirth: '',
-  className: '',
-  email: '',
-  password: '',
-  phone: '',
-  address: '',
-  parentName: '',
-  parentPhone: '',
-  notes: '',
 };
 
 const TeacherStudents = () => {
@@ -66,14 +49,15 @@ const TeacherStudents = () => {
   const [statsData, setStatsData] = useState(null);
   const [classes, setClasses] = useState([{ id: 'all', name: 'Tất cả', count: 0 }]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState(initialFormData);
-  const [error, setError] = useState('');
-  const [emailStatus, setEmailStatus] = useState(null); // null | 'checking' | 'exists' | 'new'
-  const [emailUser, setEmailUser] = useState(null);
-  const emailTimerRef = useRef(null);
-  const [isNewClass, setIsNewClass] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+
+  // Import state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importData, setImportData] = useState([]);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchStudents = useCallback(async () => {
     try {
@@ -118,71 +102,8 @@ const TeacherStudents = () => {
     load();
   }, [fetchStudents, fetchStats]);
 
-  const checkEmail = useCallback(async (email) => {
-    if (!email || !email.includes('@')) {
-      setEmailStatus(null);
-      setEmailUser(null);
-      return;
-    }
-    setEmailStatus('checking');
-    try {
-      const res = await fetch(`${API_URL}/check-email?email=${encodeURIComponent(email)}`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (data.exists) {
-          setEmailStatus('exists');
-          setEmailUser(data.user);
-          // Tự động điền tên nếu chưa nhập
-          setFormData((prev) => prev.name ? prev : { ...prev, name: data.user.name });
-        } else {
-          setEmailStatus('new');
-          setEmailUser(null);
-        }
-      }
-    } catch {
-      setEmailStatus(null);
-    }
-  }, []);
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    // Debounce check email khi nhập email
-    if (name === 'email') {
-      clearTimeout(emailTimerRef.current);
-      emailTimerRef.current = setTimeout(() => checkEmail(value), 500);
-    }
-  };
-
-  const handleAddStudent = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(formData),
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || 'Có lỗi xảy ra');
-        setSubmitting(false);
-        return;
-      }
-
-      setShowAddModal(false);
-      setFormData(initialFormData);
-      await Promise.all([fetchStudents(), fetchStats()]);
-    } catch (err) {
-      setError('Lỗi kết nối server');
-    }
-    setSubmitting(false);
+  const refreshData = async () => {
+    await Promise.all([fetchStudents(), fetchStats()]);
   };
 
   const handleDeleteStudent = async (id) => {
@@ -194,7 +115,7 @@ const TeacherStudents = () => {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
-        await Promise.all([fetchStudents(), fetchStats()]);
+        await refreshData();
         if (showDetailModal) setShowDetailModal(false);
       }
     } catch (err) {
@@ -205,6 +126,214 @@ const TeacherStudents = () => {
   const handleViewDetail = (student) => {
     setSelectedStudent(student);
     setShowDetailModal(true);
+  };
+
+  // --- Export ---
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (selectedClass !== 'all') params.append('className', selectedClass);
+
+      const token = localStorage.getItem('authToken');
+      const res = await fetch(`${API_URL}/export?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error('Export failed');
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `danh_sach_hoc_sinh${selectedClass !== 'all' ? '_' + selectedClass : ''}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('Có lỗi khi xuất file. Vui lòng thử lại.');
+    }
+    setExportLoading(false);
+  };
+
+  // --- Import ---
+  const parseCSV = (text) => {
+    const lines = text.split('\n').filter((line) => line.trim());
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+    const headerMap = {
+      'Họ tên': 'name',
+      'Giới tính': 'gender',
+      'Ngày sinh': 'dateOfBirth',
+      'Lớp': 'className',
+      'Email': 'email',
+      'SĐT': 'phone',
+      'Địa chỉ': 'address',
+      'Phụ huynh': 'parentName',
+      'SĐT phụ huynh': 'parentPhone',
+      'Trạng thái': 'status',
+      'Ghi chú': 'notes',
+    };
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (const char of lines[i]) {
+        if (char === '"') {
+          inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+          values.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      values.push(current.trim());
+
+      const row = {};
+      headers.forEach((header, idx) => {
+        const key = headerMap[header] || header;
+        row[key] = values[idx] || '';
+      });
+
+      if (row.name && row.email) {
+        rows.push(row);
+      }
+    }
+
+    return rows;
+  };
+
+  const parseExcel = (buffer) => {
+    const wb = XLSX.read(buffer, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1 });
+    if (raw.length < 2) return [];
+
+    const headers = raw[0].map((h) => String(h).trim());
+    const headerMap = {
+      'Họ tên': 'name',
+      'Giới tính': 'gender',
+      'Ngày sinh': 'dateOfBirth',
+      'Lớp': 'className',
+      'Email': 'email',
+      'SĐT': 'phone',
+      'Địa chỉ': 'address',
+      'Phụ huynh': 'parentName',
+      'SĐT phụ huynh': 'parentPhone',
+      'Ghi chú': 'notes',
+    };
+
+    const rows = [];
+    for (let i = 1; i < raw.length; i++) {
+      const values = raw[i];
+      if (!values || values.length === 0) continue;
+
+      const row = {};
+      headers.forEach((header, idx) => {
+        const key = headerMap[header] || header;
+        row[key] = values[idx] != null ? String(values[idx]).trim() : '';
+      });
+
+      if (row.name && row.email) {
+        rows.push(row);
+      }
+    }
+    return rows;
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setImportFile(file);
+    setImportResult(null);
+
+    const reader = new FileReader();
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+
+    reader.onload = (evt) => {
+      if (isExcel) {
+        const parsed = parseExcel(evt.target.result);
+        setImportData(parsed);
+      } else {
+        const parsed = parseCSV(evt.target.result);
+        setImportData(parsed);
+      }
+    };
+
+    if (isExcel) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file, 'UTF-8');
+    }
+  };
+
+  const handleImport = async () => {
+    if (importData.length === 0) return;
+
+    setImportLoading(true);
+    setImportResult(null);
+
+    try {
+      const res = await fetch(`${API_URL}/import`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ students: importData }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setImportResult(data.results);
+        await refreshData();
+      } else {
+        setImportResult({ success: 0, failed: importData.length, errors: [data.message] });
+      }
+    } catch {
+      setImportResult({ success: 0, failed: importData.length, errors: ['Lỗi kết nối server'] });
+    }
+    setImportLoading(false);
+  };
+
+  const handleDownloadTemplate = () => {
+    const headers = ['Họ tên', 'Giới tính', 'Ngày sinh', 'Lớp', 'Email', 'SĐT', 'Địa chỉ', 'Phụ huynh', 'SĐT phụ huynh', 'Ghi chú'];
+    const examples = [
+      ['Nguyễn Văn A', 'Nam', '2010-05-15', 'Lớp 10A1', 'nguyenvana@email.com', '0912345678', 'Hà Nội', 'Nguyễn Văn B', '0987654321', 'Học sinh giỏi'],
+      ['Trần Thị B', 'Nữ', '2010-08-20', 'Lớp 10A1; Lớp 10A2', 'tranthib@email.com', '0923456789', 'Tuyên Quang', 'Trần Văn C', '0976543210', 'Học 2 lớp'],
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...examples]);
+
+    ws['!cols'] = [
+      { wch: 25 },  // Họ tên
+      { wch: 10 },  // Giới tính
+      { wch: 14 },  // Ngày sinh
+      { wch: 14 },  // Lớp
+      { wch: 28 },  // Email
+      { wch: 14 },  // SĐT
+      { wch: 25 },  // Địa chỉ
+      { wch: 22 },  // Phụ huynh
+      { wch: 14 },  // SĐT phụ huynh
+      { wch: 25 },  // Ghi chú
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Mẫu nhập học sinh');
+    XLSX.writeFile(wb, 'mau_nhap_hoc_sinh.xlsx');
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportData([]);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const stats = [
@@ -238,20 +367,6 @@ const TeacherStudents = () => {
     },
   ];
 
-  const getScoreColor = (score) => {
-    if (score >= 9) return 'text-emerald-600 bg-emerald-50';
-    if (score >= 7) return 'text-blue-600 bg-blue-50';
-    if (score >= 5) return 'text-orange-600 bg-orange-50';
-    return 'text-red-600 bg-red-50';
-  };
-
-  const getAttendanceColor = (attendance) => {
-    if (attendance >= 95) return 'text-emerald-600';
-    if (attendance >= 85) return 'text-blue-600';
-    if (attendance >= 75) return 'text-orange-600';
-    return 'text-red-600';
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -269,24 +384,27 @@ const TeacherStudents = () => {
           <p className="text-gray-600">Theo dõi và quản lý thông tin học sinh</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all">
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all"
+          >
             <FiUpload className="w-4 h-4" />
-            <span>Import</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all">
-            <FiDownload className="w-4 h-4" />
-            <span>Export</span>
+            <span>Nhập từ file</span>
           </button>
           <button
-            onClick={() => {
-              setFormData(initialFormData);
-              setError('');
-              setEmailStatus(null);
-              setEmailUser(null);
-              setIsNewClass(false);
-              setShowPassword(false);
-              setShowAddModal(true);
-            }}
+            onClick={handleExport}
+            disabled={exportLoading}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50"
+          >
+            {exportLoading ? (
+              <FiLoader className="w-4 h-4 animate-spin" />
+            ) : (
+              <FiDownload className="w-4 h-4" />
+            )}
+            <span>Tải về Excel</span>
+          </button>
+          <button
+            onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all shadow-lg shadow-emerald-500/25"
           >
             <FiPlus className="w-5 h-5" />
@@ -399,179 +517,15 @@ const TeacherStudents = () => {
       {viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {students.map((student) => (
-            <div
-              key={student._id}
-              className="bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all cursor-pointer group overflow-hidden"
-              onClick={() => handleViewDetail(student)}
-            >
-              <div className="relative h-24 bg-gradient-to-br from-emerald-400 to-teal-500">
-                <div className="absolute -bottom-10 left-1/2 -translate-x-1/2">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-lg">
-                    <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                      {student.name.charAt(0)}
-                    </div>
-                  </div>
-                </div>
-                <div className="absolute top-3 right-3">
-                  {student.status === 'active' ? (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-emerald-500 text-white text-xs font-medium rounded-full">
-                      <IoCheckmarkCircleOutline className="w-3 h-3" />
-                      <span>Đang học</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-red-500 text-white text-xs font-medium rounded-full">
-                      <IoCloseCircleOutline className="w-3 h-3" />
-                      <span>Nghỉ học</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-12 p-4">
-                <h3 className="font-bold text-gray-800 text-center mb-1 truncate">{student.name}</h3>
-                <p className="text-sm text-gray-500 text-center mb-4">{student.className}</p>
-
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${getScoreColor(student.score)} rounded-lg py-1`}>
-                      {student.score}
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Điểm TB</p>
-                  </div>
-                  <div className="text-center">
-                    <div className={`text-2xl font-bold ${getAttendanceColor(student.attendance)}`}>
-                      {student.attendance}%
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">Đi học</p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                    <span>Hoàn thành bài tập</span>
-                    <span className="font-medium">
-                      {student.assignmentsCompleted}/{student.assignmentsTotal}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all"
-                      style={{
-                        width: `${student.assignmentsTotal > 0 ? (student.assignmentsCompleted / student.assignmentsTotal) * 100 : 0}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-gray-600">
-                    <FiMail className="w-3 h-3" />
-                    <span className="truncate">{student.email}</span>
-                  </div>
-                  {student.phone && (
-                    <div className="flex items-center gap-2 text-xs text-gray-600">
-                      <FiPhone className="w-3 h-3" />
-                      <span>{student.phone}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <StudentCard key={student._id} student={student} onClick={handleViewDetail} />
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Học sinh</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Lớp</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Điểm TB</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Đi học</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Bài tập</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Trạng thái</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {students.map((student) => (
-                <tr key={student._id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {student.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800">{student.name}</p>
-                        <p className="text-xs text-gray-500">{student.phone}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded">
-                      {student.className}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{student.email}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      <span className={`px-3 py-1 rounded-lg font-bold ${getScoreColor(student.score)}`}>
-                        {student.score}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className={`text-center font-bold ${getAttendanceColor(student.attendance)}`}>
-                      {student.attendance}%
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-center text-sm text-gray-600">
-                      {student.assignmentsCompleted}/{student.assignmentsTotal}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      {student.status === 'active' ? (
-                        <span className="flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-600 text-xs font-medium rounded-full">
-                          <IoCheckmarkCircleOutline className="w-3 h-3" />
-                          Đang học
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full">
-                          <IoCloseCircleOutline className="w-3 h-3" />
-                          Nghỉ học
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => handleViewDetail(student)}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Xem chi tiết"
-                      >
-                        <FiBookOpen className="w-4 h-4 text-gray-600" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteStudent(student._id);
-                        }}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                        title="Xóa"
-                      >
-                        <FiTrash2 className="w-4 h-4 text-red-600" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StudentTable
+          students={students}
+          onViewDetail={handleViewDetail}
+          onDelete={handleDeleteStudent}
+        />
       )}
 
       {/* Empty State */}
@@ -596,442 +550,169 @@ const TeacherStudents = () => {
       )}
 
       {/* Add Student Modal */}
-      {showAddModal && (
+      <AddStudentModal
+        show={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        classes={classes}
+        onSuccess={refreshData}
+      />
+
+      {/* Student Detail Modal */}
+      <StudentDetailModal
+        show={showDetailModal}
+        student={selectedStudent}
+        onClose={() => setShowDetailModal(false)}
+        onDelete={handleDeleteStudent}
+        onUpdate={refreshData}
+        classes={classes}
+      />
+
+      {/* Import Modal */}
+      {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-800">Thêm học sinh mới</h2>
+              <h2 className="text-2xl font-bold text-gray-800">Nhập học sinh từ file</h2>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={closeImportModal}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <FiX className="w-6 h-6 text-gray-600" />
               </button>
             </div>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleAddStudent} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            {/* Download template */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+              <div className="flex items-start gap-3">
+                <FiFile className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleFormChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    placeholder="Nhập họ và tên"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Giới tính <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleFormChange}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="Nam">Nam</option>
-                    <option value="Nữ">Nữ</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ngày sinh <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleFormChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Lớp <span className="text-red-500">*</span>
-                  </label>
-                  {!isNewClass ? (
-                    <select
-                      name="className"
-                      value={formData.className}
-                      onChange={(e) => {
-                        if (e.target.value === '__new__') {
-                          setIsNewClass(true);
-                          setFormData((prev) => ({ ...prev, className: '' }));
-                        } else {
-                          handleFormChange(e);
-                        }
-                      }}
-                      required
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    >
-                      <option value="">-- Chọn lớp --</option>
-                      {classes
-                        .filter((c) => c.id !== 'all')
-                        .map((c) => (
-                          <option key={c.id} value={c.name}>
-                            {c.name} ({c.count} HS)
-                          </option>
-                        ))}
-                      <option value="__new__">+ Tạo lớp mới...</option>
-                    </select>
-                  ) : (
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        name="className"
-                        value={formData.className}
-                        onChange={handleFormChange}
-                        required
-                        autoFocus
-                        className="flex-1 px-4 py-3 border border-blue-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="VD: Lớp 10A1"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsNewClass(false);
-                          setFormData((prev) => ({ ...prev, className: '' }));
-                        }}
-                        className="px-3 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-gray-600 transition-colors"
-                        title="Quay lại chọn lớp"
-                      >
-                        <FiX className="w-5 h-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleFormChange}
-                    required
-                    className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 ${
-                      emailStatus === 'exists'
-                        ? 'border-emerald-400 focus:ring-emerald-500'
-                        : emailStatus === 'new'
-                        ? 'border-blue-400 focus:ring-blue-500'
-                        : 'border-gray-200 focus:ring-emerald-500'
-                    }`}
-                    placeholder="Nhập email học sinh..."
-                  />
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    {emailStatus === 'checking' && (
-                      <FiLoader className="w-5 h-5 text-gray-400 animate-spin" />
-                    )}
-                    {emailStatus === 'exists' && (
-                      <FiCheck className="w-5 h-5 text-emerald-500" />
-                    )}
-                    {emailStatus === 'new' && (
-                      <FiUserPlus className="w-5 h-5 text-blue-500" />
-                    )}
-                  </div>
-                </div>
-                {/* Email status message */}
-                {emailStatus === 'exists' && emailUser && (
-                  <div className="mt-2 flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                    <FiCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                    <div className="text-sm">
-                      <span className="text-emerald-700">Tài khoản đã tồn tại: </span>
-                      <span className="font-medium text-emerald-800">{emailUser.name}</span>
-                      <span className="text-emerald-600"> ({emailUser.role === 'student' ? 'Học sinh' : emailUser.role})</span>
-                    </div>
-                  </div>
-                )}
-                {emailStatus === 'new' && (
-                  <div className="mt-2 flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <FiUserPlus className="w-4 h-4 text-blue-500 flex-shrink-0" />
-                    <p className="text-sm text-blue-700">
-                      Email chưa có tài khoản. Hệ thống sẽ <span className="font-medium">tự động tạo tài khoản mới</span> khi thêm học sinh.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Password - chỉ hiển thị khi tạo tài khoản mới */}
-              {emailStatus === 'new' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mật khẩu đăng nhập <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <FiLock className="w-4 h-4 text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleFormChange}
-                      required
-                      minLength={6}
-                      className="w-full pl-12 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? <FiEyeOff className="w-5 h-5" /> : <FiEye className="w-5 h-5" />}
-                    </button>
-                  </div>
-                  <p className="mt-1.5 text-xs text-gray-500">
-                    Học sinh sẽ dùng email và mật khẩu này để đăng nhập hệ thống
+                  <p className="text-sm text-blue-800 font-medium mb-1">File mẫu Excel</p>
+                  <p className="text-xs text-blue-600 mb-2">
+                    Tải file mẫu để xem định dạng đúng. Các cột bắt buộc: Họ tên, Giới tính, Ngày sinh, Lớp, Email. Nhiều lớp phân cách bằng dấu chấm phẩy (;).
                   </p>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="0912345678"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ</label>
-                <input
-                  type="text"
-                  name="address"
-                  value={formData.address}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Nhập địa chỉ"
-                />
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="font-semibold text-gray-800 mb-4">Thông tin phụ huynh</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Họ tên phụ huynh</label>
-                    <input
-                      type="text"
-                      name="parentName"
-                      value={formData.parentName}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="Nhập họ tên phụ huynh"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">SĐT phụ huynh</label>
-                    <input
-                      type="tel"
-                      name="parentPhone"
-                      value={formData.parentPhone}
-                      onChange={handleFormChange}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      placeholder="0987654321"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
-                <textarea
-                  rows="3"
-                  name="notes"
-                  value={formData.notes}
-                  onChange={handleFormChange}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Nhập ghi chú về học sinh..."
-                ></textarea>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50"
-                >
-                  {submitting ? 'Đang thêm...' : 'Thêm học sinh'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Student Detail Modal */}
-      {showDetailModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="relative h-32 bg-gradient-to-br from-emerald-400 to-teal-500">
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="absolute top-4 right-4 p-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-colors"
-              >
-                <FiX className="w-5 h-5 text-white" />
-              </button>
-              <div className="absolute -bottom-16 left-8">
-                <div className="w-32 h-32 bg-white rounded-full flex items-center justify-center border-4 border-white shadow-xl">
-                  <div className="w-full h-full bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-4xl">
-                    {selectedStudent.name.charAt(0)}
-                  </div>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors"
+                  >
+                    <FiDownload className="w-3.5 h-3.5" />
+                    Tải file mẫu
+                  </button>
                 </div>
               </div>
             </div>
 
-            <div className="pt-20 p-8">
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-1">{selectedStudent.name}</h2>
-                  <p className="text-gray-600">
-                    {selectedStudent.className} &bull; {selectedStudent.gender}
-                  </p>
-                </div>
-                {selectedStudent.status === 'active' ? (
-                  <span className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 text-sm font-medium rounded-full">
-                    <IoCheckmarkCircleOutline className="w-4 h-4" />
-                    Đang học
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 text-sm font-medium rounded-full">
-                    <IoCloseCircleOutline className="w-4 h-4" />
-                    Nghỉ học
-                  </span>
-                )}
-              </div>
+            {/* File upload */}
+            <div className="mb-6">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-8 border-2 border-dashed border-gray-300 rounded-xl hover:border-emerald-400 hover:bg-emerald-50/50 transition-all text-center group"
+              >
+                <FiUpload className="w-10 h-10 text-gray-400 group-hover:text-emerald-500 mx-auto mb-3 transition-colors" />
+                <p className="text-sm font-medium text-gray-700 group-hover:text-emerald-700">
+                  {importFile ? importFile.name : 'Nhấn để chọn file CSV'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Hỗ trợ file .xlsx, .xls, .csv</p>
+              </button>
+            </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <div className="bg-blue-50 rounded-xl p-4 text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">{selectedStudent.score}</div>
-                  <div className="text-sm text-gray-600">Điểm trung bình</div>
+            {/* Preview */}
+            {importData.length > 0 && !importResult && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                  Xem trước ({importData.length} học sinh)
+                </h3>
+                <div className="max-h-60 overflow-y-auto border border-gray-200 rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">#</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Họ tên</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Lớp</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Email</th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600">Giới tính</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {importData.map((row, idx) => (
+                        <tr key={idx} className="hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-500">{idx + 1}</td>
+                          <td className="px-3 py-2 font-medium text-gray-800">{row.name}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.className}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.email}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.gender}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="bg-emerald-50 rounded-xl p-4 text-center">
-                  <div className="text-3xl font-bold text-emerald-600 mb-1">{selectedStudent.attendance}%</div>
-                  <div className="text-sm text-gray-600">Tỷ lệ đi học</div>
-                </div>
-                <div className="bg-purple-50 rounded-xl p-4 text-center">
-                  <div className="text-3xl font-bold text-purple-600 mb-1">
-                    {selectedStudent.assignmentsCompleted}/{selectedStudent.assignmentsTotal}
+              </div>
+            )}
+
+            {/* Import result */}
+            {importResult && (
+              <div className="mb-6 space-y-3">
+                {importResult.success > 0 && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                    <FiCheck className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                    <p className="text-sm text-emerald-700">
+                      Nhập thành công <span className="font-bold">{importResult.success}</span> học sinh
+                    </p>
                   </div>
-                  <div className="text-sm text-gray-600">Bài tập hoàn thành</div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                    <IoPersonOutline className="w-5 h-5" />
-                    Thông tin cá nhân
-                  </h3>
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <FiMail className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">Email:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.email}</span>
+                )}
+                {importResult.failed > 0 && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FiAlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                      <p className="text-sm text-red-700">
+                        Thất bại <span className="font-bold">{importResult.failed}</span> dòng
+                      </p>
                     </div>
-                    {selectedStudent.phone && (
-                      <div className="flex items-center gap-3">
-                        <FiPhone className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">SĐT:</span>
-                        <span className="text-sm font-medium text-gray-800">{selectedStudent.phone}</span>
+                    {importResult.errors && importResult.errors.length > 0 && (
+                      <div className="max-h-32 overflow-y-auto">
+                        {importResult.errors.map((err, idx) => (
+                          <p key={idx} className="text-xs text-red-600 mt-1">- {err}</p>
+                        ))}
                       </div>
                     )}
-                    <div className="flex items-center gap-3">
-                      <IoCalendarOutline className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm text-gray-600">Ngày sinh:</span>
-                      <span className="text-sm font-medium text-gray-800">{selectedStudent.dateOfBirth}</span>
-                    </div>
-                    {selectedStudent.address && (
-                      <div className="flex items-center gap-3">
-                        <FiMapPin className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">Địa chỉ:</span>
-                        <span className="text-sm font-medium text-gray-800">{selectedStudent.address}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {(selectedStudent.parentName || selectedStudent.parentPhone) && (
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
-                      <IoPersonOutline className="w-5 h-5" />
-                      Thông tin phụ huynh
-                    </h3>
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                      {selectedStudent.parentName && (
-                        <div className="flex items-center gap-3">
-                          <IoPersonOutline className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">Họ tên:</span>
-                          <span className="text-sm font-medium text-gray-800">{selectedStudent.parentName}</span>
-                        </div>
-                      )}
-                      {selectedStudent.parentPhone && (
-                        <div className="flex items-center gap-3">
-                          <FiPhone className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm text-gray-600">SĐT:</span>
-                          <span className="text-sm font-medium text-gray-800">{selectedStudent.parentPhone}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {selectedStudent.notes && (
-                  <div>
-                    <h3 className="text-lg font-bold text-gray-800 mb-3">Ghi chú</h3>
-                    <div className="bg-amber-50 border-l-4 border-amber-400 rounded-xl p-4">
-                      <p className="text-sm text-gray-700">{selectedStudent.notes}</p>
-                    </div>
                   </div>
                 )}
               </div>
+            )}
 
-              <div className="flex gap-3 mt-8 pt-6 border-t">
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={closeImportModal}
+                className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-xl font-semibold text-gray-700 transition-colors"
+              >
+                {importResult ? 'Đóng' : 'Hủy'}
+              </button>
+              {!importResult && (
                 <button
-                  onClick={() => {
-                    handleDeleteStudent(selectedStudent._id);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-50 hover:bg-red-100 rounded-xl font-semibold text-red-600 transition-colors"
+                  onClick={handleImport}
+                  disabled={importData.length === 0 || importLoading}
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-50"
                 >
-                  <FiTrash2 className="w-4 h-4" />
-                  Xóa
+                  {importLoading ? (
+                    <>
+                      <FiLoader className="w-4 h-4 animate-spin" />
+                      Đang nhập...
+                    </>
+                  ) : (
+                    <>
+                      <FiUpload className="w-4 h-4" />
+                      Nhập {importData.length > 0 ? `${importData.length} học sinh` : ''}
+                    </>
+                  )}
                 </button>
-                <button className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-600 transition-all">
-                  <FiMail className="w-4 h-4" />
-                  Gửi email
-                </button>
-              </div>
+              )}
             </div>
           </div>
         </div>

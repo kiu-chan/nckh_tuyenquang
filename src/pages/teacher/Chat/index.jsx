@@ -8,8 +8,10 @@ import {
   FiHelpCircle,
   FiTrash2,
   FiFileText,
+  FiDownload,
 } from 'react-icons/fi';
 import { IoSparkles } from 'react-icons/io5';
+import html2pdf from 'html2pdf.js';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || '');
 
@@ -161,6 +163,70 @@ const TeacherChat = () => {
     }
   };
 
+  const generatePdfFromHtml = (container, filename) => {
+    html2pdf()
+      .set({
+        margin: [15, 15, 15, 15],
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      })
+      .from(container)
+      .save();
+  };
+
+  const handleDownloadResponse = (msg) => {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:20px;font-family:Arial,sans-serif;color:#1f2937;max-width:700px;';
+    container.innerHTML = `
+      <div style="border-bottom:2px solid #10b981;padding-bottom:12px;margin-bottom:16px;">
+        <h2 style="margin:0;color:#065f46;font-size:18px;">Trợ lý AI - NoteBookLM</h2>
+        <p style="margin:4px 0 0;color:#6b7280;font-size:12px;">${new Date(msg.timestamp).toLocaleString('vi-VN')}</p>
+      </div>
+      <div style="font-size:14px;line-height:1.8;">${document.querySelector(`[data-msg-id="msg-${msg.timestamp}"]`)?.innerHTML || msg.text}</div>
+    `;
+    generatePdfFromHtml(container, `ai-response-${Date.now()}.pdf`);
+  };
+
+  const handleDownloadConversation = () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'padding:20px;font-family:Arial,sans-serif;color:#1f2937;max-width:700px;';
+
+    let html = `
+      <div style="border-bottom:2px solid #10b981;padding-bottom:12px;margin-bottom:20px;">
+        <h2 style="margin:0;color:#065f46;font-size:20px;">Cuộc trò chuyện với Trợ lý AI</h2>
+        <p style="margin:4px 0 0;color:#6b7280;font-size:12px;">Giáo viên: ${currentUser?.name || 'N/A'} | Xuất ngày: ${new Date().toLocaleString('vi-VN')}</p>
+        <p style="margin:2px 0 0;color:#6b7280;font-size:12px;">Tổng: ${messages.length} tin nhắn</p>
+      </div>
+    `;
+
+    messages.forEach((msg) => {
+      const time = new Date(msg.timestamp).toLocaleString('vi-VN');
+      if (msg.role === 'user') {
+        html += `
+          <div style="margin-bottom:16px;padding:12px 16px;background:#ecfdf5;border-radius:10px;border-left:4px solid #10b981;">
+            <p style="margin:0 0 4px;font-weight:bold;color:#065f46;font-size:13px;">Bạn <span style="font-weight:normal;color:#6b7280;font-size:11px;">· ${time}</span></p>
+            <p style="margin:0;font-size:14px;white-space:pre-wrap;">${msg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+          </div>
+        `;
+      } else {
+        const renderedEl = document.querySelector(`[data-msg-id="msg-${msg.timestamp}"]`);
+        const content = renderedEl ? renderedEl.innerHTML : msg.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        html += `
+          <div style="margin-bottom:16px;padding:12px 16px;background:#f9fafb;border-radius:10px;border-left:4px solid #6b7280;">
+            <p style="margin:0 0 4px;font-weight:bold;color:#374151;font-size:13px;">Trợ lý AI <span style="font-weight:normal;color:#6b7280;font-size:11px;">· ${time}</span></p>
+            <div style="font-size:14px;line-height:1.8;">${content}</div>
+          </div>
+        `;
+      }
+    });
+
+    container.innerHTML = html;
+    generatePdfFromHtml(container, `conversation-${Date.now()}.pdf`);
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 -m-6">
       {/* Header */}
@@ -180,14 +246,24 @@ const TeacherChat = () => {
             </div>
           </div>
           {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-              title="Xóa lịch sử chat"
-            >
-              <FiTrash2 size={16} />
-              <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDownloadConversation}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                title="Tải cuộc trò chuyện (PDF)"
+              >
+                <FiDownload size={16} />
+                <span className="hidden sm:inline">Tải PDF</span>
+              </button>
+              <button
+                onClick={handleClearChat}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Xóa lịch sử chat"
+              >
+                <FiTrash2 size={16} />
+                <span className="hidden sm:inline">Cuộc trò chuyện mới</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -253,21 +329,33 @@ const TeacherChat = () => {
                   </div>
 
                   {/* Message bubble */}
-                  <div
-                    className={`rounded-2xl px-4 py-3 ${
-                      msg.role === 'user'
-                        ? 'bg-emerald-500 text-white'
-                        : msg.isError
-                          ? 'bg-red-50 border border-red-200 text-red-700'
-                          : 'bg-white border border-gray-200 text-gray-800'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                    ) : (
-                      <div className="text-sm leading-relaxed overflow-x-auto">
-                        <MathDisplay text={msg.text} block />
-                      </div>
+                  <div className="flex flex-col gap-1">
+                    <div
+                      className={`rounded-2xl px-4 py-3 ${
+                        msg.role === 'user'
+                          ? 'bg-emerald-500 text-white'
+                          : msg.isError
+                            ? 'bg-red-50 border border-red-200 text-red-700'
+                            : 'bg-white border border-gray-200 text-gray-800'
+                      }`}
+                    >
+                      {msg.role === 'user' ? (
+                        <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      ) : (
+                        <div data-msg-id={`msg-${msg.timestamp}`} className="text-sm leading-relaxed overflow-x-auto">
+                          <MathDisplay text={msg.text} block />
+                        </div>
+                      )}
+                    </div>
+                    {msg.role === 'ai' && !msg.isError && (
+                      <button
+                        onClick={() => handleDownloadResponse(msg)}
+                        className="flex items-center gap-1 text-xs text-gray-400 hover:text-emerald-600 transition-colors self-start ml-1"
+                        title="Tải câu trả lời (PDF)"
+                      >
+                        <FiDownload size={12} />
+                        <span>Tải về</span>
+                      </button>
                     )}
                   </div>
                 </div>

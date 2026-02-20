@@ -27,8 +27,12 @@ const studentSchema = new mongoose.Schema(
       required: [true, 'Ngày sinh là bắt buộc'],
     },
     className: {
-      type: String,
+      type: [String],
       required: [true, 'Lớp là bắt buộc'],
+      validate: {
+        validator: (v) => Array.isArray(v) && v.length > 0,
+        message: 'Phải có ít nhất một lớp',
+      },
     },
     address: {
       type: String,

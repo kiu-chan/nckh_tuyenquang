@@ -1,4 +1,5 @@
 import express from 'express';
+import XLSX from 'xlsx';
 import Student from '../models/Student.js';
 import User from '../models/User.js';
 import Game from '../models/Game.js';
@@ -55,9 +56,10 @@ router.get('/stats', async (req, res) => {
 
     const stats = scoreAgg[0] || { avgScore: 0, avgAttendance: 0, excellent: 0 };
 
-    // Lấy danh sách lớp
+    // Lấy danh sách lớp (unwind vì className là array)
     const classes = await Student.aggregate([
       { $match: { teacher: teacherId } },
+      { $unwind: '$className' },
       { $group: { _id: '$className', count: { $sum: 1 } } },
       { $sort: { _id: 1 } },
     ]);
@@ -93,6 +95,142 @@ router.get('/check-email', async (req, res) => {
     } else {
       res.json({ success: true, exists: false });
     }
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// GET /api/students/export - Xuất danh sách học sinh ra Excel
+router.get('/export', async (req, res) => {
+  try {
+    const { className } = req.query;
+    const filter = { teacher: req.user._id };
+    if (className) filter.className = className;
+
+    const students = await Student.find(filter).sort({ className: 1, name: 1 });
+
+    const headers = ['STT', 'Họ tên', 'Giới tính', 'Ngày sinh', 'Lớp', 'Email', 'SĐT', 'Địa chỉ', 'Phụ huynh', 'SĐT phụ huynh', 'Điểm TB', 'Đi học (%)', 'Trạng thái', 'Ghi chú'];
+
+    const data = students.map((s, idx) => [
+      idx + 1,
+      s.name || '',
+      s.gender || '',
+      s.dateOfBirth || '',
+      Array.isArray(s.className) ? s.className.join('; ') : (s.className || ''),
+      s.email || '',
+      s.phone || '',
+      s.address || '',
+      s.parentName || '',
+      s.parentPhone || '',
+      s.score ?? 0,
+      s.attendance ?? 0,
+      s.status === 'active' ? 'Đang học' : 'Nghỉ học',
+      s.notes || '',
+    ]);
+
+    const wsData = [headers, ...data];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Căn chỉnh độ rộng cột
+    ws['!cols'] = [
+      { wch: 5 },   // STT
+      { wch: 25 },  // Họ tên
+      { wch: 10 },  // Giới tính
+      { wch: 14 },  // Ngày sinh
+      { wch: 14 },  // Lớp
+      { wch: 28 },  // Email
+      { wch: 14 },  // SĐT
+      { wch: 30 },  // Địa chỉ
+      { wch: 22 },  // Phụ huynh
+      { wch: 14 },  // SĐT phụ huynh
+      { wch: 10 },  // Điểm TB
+      { wch: 12 },  // Đi học
+      { wch: 12 },  // Trạng thái
+      { wch: 30 },  // Ghi chú
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Danh sách học sinh');
+
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    const fileName = `danh_sach_hoc_sinh${className ? '_' + className : ''}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=${encodeURIComponent(fileName)}`);
+    res.send(buf);
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/students/import - Nhập học sinh từ CSV
+router.post('/import', async (req, res) => {
+  try {
+    const { students: rows } = req.body;
+
+    if (!rows || !Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ message: 'Không có dữ liệu học sinh' });
+    }
+
+    const results = { success: 0, failed: 0, errors: [] };
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      try {
+        if (!row.name || !row.email || !row.className || !row.gender || !row.dateOfBirth) {
+          results.failed++;
+          results.errors.push(`Dòng ${i + 1}: Thiếu thông tin bắt buộc (tên, email, lớp, giới tính, ngày sinh)`);
+          continue;
+        }
+
+        const email = row.email.toLowerCase().trim();
+
+        // Tìm hoặc tạo User
+        let user = await User.findOne({ email });
+        if (!user) {
+          const password = row.password || email.split('@')[0] + '123';
+          user = await User.create({
+            email,
+            password,
+            name: row.name.trim(),
+            role: 'student',
+          });
+        }
+
+        // Kiểm tra trùng
+        const existing = await Student.findOne({ email, teacher: req.user._id });
+        if (existing) {
+          results.failed++;
+          results.errors.push(`Dòng ${i + 1}: ${row.name} (${email}) đã tồn tại`);
+          continue;
+        }
+
+        await Student.create({
+          name: row.name.trim(),
+          email,
+          gender: row.gender || 'Nam',
+          dateOfBirth: row.dateOfBirth || '',
+          className: row.className.includes(';')
+            ? row.className.split(';').map((c) => c.trim()).filter(Boolean)
+            : [row.className.trim()],
+          phone: row.phone || '',
+          address: row.address || '',
+          parentName: row.parentName || '',
+          parentPhone: row.parentPhone || '',
+          notes: row.notes || '',
+          status: 'active',
+          user: user._id,
+          teacher: req.user._id,
+        });
+
+        results.success++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push(`Dòng ${i + 1}: ${err.message}`);
+      }
+    }
+
+    res.json({ success: true, results });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }
@@ -223,6 +361,11 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ message: 'Học sinh với email này đã tồn tại trong danh sách của bạn' });
     }
 
+    // Đảm bảo className luôn là array
+    if (rest.className && typeof rest.className === 'string') {
+      rest.className = [rest.className];
+    }
+
     const student = await Student.create({
       ...rest,
       name,
@@ -244,6 +387,10 @@ router.post('/', async (req, res) => {
 // PUT /api/students/:id - Cập nhật học sinh
 router.put('/:id', async (req, res) => {
   try {
+    if (req.body.className && typeof req.body.className === 'string') {
+      req.body.className = [req.body.className];
+    }
+
     const student = await Student.findOneAndUpdate(
       { _id: req.params.id, teacher: req.user._id },
       req.body,

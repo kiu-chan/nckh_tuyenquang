@@ -139,9 +139,16 @@ const StudentClassroom = () => {
               <IoSchoolOutline className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-800">{classroom.className}</h2>
-              <p className="text-sm text-gray-500">{classroom.totalStudents} học sinh</p>
+              <h2 className="text-lg font-bold text-gray-800">Lớp của tôi</h2>
+              <p className="text-sm text-gray-500">{classroom.totalStudents} bạn cùng lớp</p>
             </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {(Array.isArray(classroom.className) ? classroom.className : [classroom.className]).map((cn) => (
+              <span key={cn} className="px-3 py-1 bg-blue-50 text-blue-700 text-sm font-medium rounded-lg">
+                {cn}
+              </span>
+            ))}
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600">
             <FiUser className="w-4 h-4" />
