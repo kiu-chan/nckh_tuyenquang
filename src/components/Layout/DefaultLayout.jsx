@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { 
-  FiMenu, 
-  FiX, 
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import {
+  FiMenu,
+  FiX,
   FiSearch,
   FiHome,
   FiInfo,
   FiMail,
   FiLogIn,
+  FiLogOut,
   FiUser,
   FiHelpCircle,
-  FiFileText
+  FiFileText,
+  FiGrid
 } from 'react-icons/fi';
-import { 
+import {
   IoBookOutline,
   IoSparklesOutline,
   IoPricetagsOutline
@@ -31,7 +34,27 @@ const menuItems = [
 function DefaultLayout({ children }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
+
+  const isLoggedIn = !!currentUser;
+  const dashboardPath = currentUser?.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+
+  const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
+    try {
+      await logout();
+      setShowLogoutConfirm(false);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
@@ -88,20 +111,49 @@ function DefaultLayout({ children }) {
 
             {/* Auth Buttons */}
             <div className="hidden lg:flex items-center gap-2">
-              <Link
-                to="/login"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                <FiLogIn className="w-4 h-4" />
-                <span>Đăng nhập</span>
-              </Link>
-              <Link
-                to="/register"
-                className="flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-medium text-white transition-colors shadow-md"
-              >
-                <FiUser className="w-4 h-4" />
-                <span>Đăng ký</span>
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    to={dashboardPath}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                  >
+                    <FiGrid className="w-4 h-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-full">
+                    <div className="w-7 h-7 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {currentUser?.name?.charAt(0) || 'U'}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 max-w-[100px] truncate">
+                      {currentUser?.name || 'User'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <FiLogOut className="w-4 h-4" />
+                    <span>Đăng xuất</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    <FiLogIn className="w-4 h-4" />
+                    <span>Đăng nhập</span>
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="flex items-center gap-2 px-5 py-2 bg-emerald-500 hover:bg-emerald-600 rounded-full text-sm font-medium text-white transition-colors shadow-md"
+                  >
+                    <FiUser className="w-4 h-4" />
+                    <span>Đăng ký</span>
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -135,21 +187,54 @@ function DefaultLayout({ children }) {
                 );
               })}
               
-              <div className="pt-3 border-t border-gray-100 flex gap-2">
-                <Link
-                  to="/login"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-                >
-                  <FiLogIn className="w-5 h-5" />
-                  Đăng nhập
-                </Link>
-                <Link
-                  to="/register"
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
-                >
-                  <FiUser className="w-5 h-5" />
-                  Đăng ký
-                </Link>
+              <div className="pt-3 border-t border-gray-100">
+                {isLoggedIn ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-lg">
+                      <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
+                        {currentUser?.name?.charAt(0) || 'U'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">
+                          {currentUser?.name || 'User'}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{currentUser?.email}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        to={dashboardPath}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
+                      >
+                        <FiGrid className="w-5 h-5" />
+                        Dashboard
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-red-50 hover:text-red-600 transition-colors"
+                      >
+                        <FiLogOut className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Link
+                      to="/login"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors"
+                    >
+                      <FiLogIn className="w-5 h-5" />
+                      Đăng nhập
+                    </Link>
+                    <Link
+                      to="/register"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors"
+                    >
+                      <FiUser className="w-5 h-5" />
+                      Đăng ký
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -160,6 +245,37 @@ function DefaultLayout({ children }) {
       <main className="pt-16">
         {children}
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-red-100 rounded-full mx-auto mb-4">
+              <FiLogOut className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-800 text-center mb-2">
+              Xác nhận đăng xuất
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Bạn có chắc chắn muốn đăng xuất khỏi tài khoản không?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium transition-colors"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-gray-300 mt-20">
