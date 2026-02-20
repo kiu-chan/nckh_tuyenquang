@@ -7,7 +7,7 @@ import {
 import { IoGameControllerOutline } from 'react-icons/io5';
 import { formatLastPlayed } from './utils';
 
-const QuizSection = ({ quizzes, onPlay, onDelete, onOpenCreate }) => (
+const QuizSection = ({ quizzes, onPlay, onDelete, onOpenCreate, onEdit }) => (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <div>
@@ -81,7 +81,10 @@ const QuizSection = ({ quizzes, onPlay, onDelete, onOpenCreate }) => (
                   <FiPlay className="w-4 h-4" />
                   <span>Chơi</span>
                 </button>
-                <button className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                <button
+                  onClick={() => onEdit(quiz)}
+                  className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
                   <FiEdit2 className="w-4 h-4" />
                   <span>Sửa</span>
                 </button>

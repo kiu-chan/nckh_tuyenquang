@@ -6,6 +6,7 @@ import {
   IoCloseCircleOutline,
   IoTimeOutline,
 } from 'react-icons/io5';
+import MathDisplay from '../../../components/MathDisplay';
 
 const QuizGameModal = ({ quiz, onClose, onRecordPlay }) => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -143,7 +144,9 @@ const QuizGameModal = ({ quiz, onClose, onRecordPlay }) => {
         </div>
 
         <div className="mb-6">
-          <h4 className="text-lg font-semibold text-gray-800 mb-4">{questions[currentQuestion].question}</h4>
+          <h4 className="text-lg font-semibold text-gray-800 mb-4">
+            <MathDisplay text={questions[currentQuestion].question} />
+          </h4>
           <div className="space-y-3">
             {questions[currentQuestion].answers.map((answer, index) => {
               const isCorrect = index === questions[currentQuestion].correct;
@@ -162,7 +165,7 @@ const QuizGameModal = ({ quiz, onClose, onRecordPlay }) => {
                     <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold">
                       {String.fromCharCode(65 + index)}
                     </span>
-                    <span>{answer}</span>
+                    <MathDisplay text={answer} />
                     {isAnswered && isCorrect && <IoCheckmarkCircleOutline className="w-6 h-6 text-green-600 ml-auto" />}
                     {isAnswered && isSelected && !isCorrect && <IoCloseCircleOutline className="w-6 h-6 text-red-600 ml-auto" />}
                   </div>

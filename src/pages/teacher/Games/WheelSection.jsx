@@ -10,7 +10,7 @@ import {
 import { IoSparklesOutline } from 'react-icons/io5';
 import { formatLastPlayed, getAuthHeaders } from './utils';
 
-const WheelSection = ({ wheels, onPlay, onDelete, onOpenCreate, onRefresh }) => {
+const WheelSection = ({ wheels, onPlay, onDelete, onOpenCreate, onRefresh, onEdit }) => {
   const [importingId, setImportingId] = useState(null);
 
   const handleImportStudents = async (wheelId) => {
@@ -19,7 +19,7 @@ const WheelSection = ({ wheels, onPlay, onDelete, onOpenCreate, onRefresh }) => 
       const res = await fetch('/api/students/add-to-wheel', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ gameId: wheelId, mode: 'replace' }),
+        body: JSON.stringify({ gameId: wheelId, mode: 'append' }),
       });
       const data = await res.json();
       if (data.success) {
@@ -120,7 +120,10 @@ const WheelSection = ({ wheels, onPlay, onDelete, onOpenCreate, onRefresh }) => 
                   </button>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <button className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                  <button
+                    onClick={() => onEdit(wheel)}
+                    className="flex items-center justify-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
                     <FiEdit2 className="w-4 h-4" />
                     <span>Sửa</span>
                   </button>

@@ -24,6 +24,7 @@ const TeacherGames = () => {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createType, setCreateType] = useState('quiz');
+  const [editGame, setEditGame] = useState(null);
 
   const fetchGames = useCallback(async () => {
     try {
@@ -86,11 +87,19 @@ const TeacherGames = () => {
 
   const openCreateModal = (type) => {
     setCreateType(type);
+    setEditGame(null);
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (game) => {
+    setCreateType(game.type);
+    setEditGame(game);
     setShowCreateModal(true);
   };
 
   const handleCreated = async () => {
     setShowCreateModal(false);
+    setEditGame(null);
     await Promise.all([fetchGames(), fetchStats()]);
   };
 
@@ -181,6 +190,7 @@ const TeacherGames = () => {
           onPlay={setShowQuizGame}
           onDelete={handleDeleteGame}
           onOpenCreate={() => openCreateModal('quiz')}
+          onEdit={openEditModal}
         />
       )}
       {activeTab === 'wheel' && (
@@ -190,6 +200,7 @@ const TeacherGames = () => {
           onDelete={handleDeleteGame}
           onOpenCreate={() => openCreateModal('wheel')}
           onRefresh={() => Promise.all([fetchGames(), fetchStats()])}
+          onEdit={openEditModal}
         />
       )}
 
@@ -212,9 +223,11 @@ const TeacherGames = () => {
       {/* Create Game Modal */}
       {showCreateModal && (
         <CreateGameModal
+          key={editGame?._id || 'create'}
           type={createType}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => { setShowCreateModal(false); setEditGame(null); }}
           onCreated={handleCreated}
+          editGame={editGame}
         />
       )}
     </div>

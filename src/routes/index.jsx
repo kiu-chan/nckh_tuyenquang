@@ -15,11 +15,14 @@ import TeacherExams from "../pages/teacher/Exams/index.jsx";
 import TeacherGames from "../pages/teacher/Games/index.jsx";
 import TeacherStudents from "../pages/teacher/Students/index.jsx";
 import TeacherStatistics from "../pages/teacher/Statistics/index.jsx";
+import TeacherSettings from "../pages/teacher/Settings/index.jsx";
+import TeacherChat from "../pages/teacher/Chat/index.jsx";
 import StudentLayout from "../components/studentLayout/StudentLayout";
 import StudentClassroom from "../pages/student/Classroom/index.jsx";
 import TakeExam from "../pages/student/TakeExam/index.jsx";
 import StudentChat from "../pages/student/Chat/index.jsx";
 import StudentGames from "../pages/student/Games/index.jsx";
+import StudentSettings from "../pages/student/Settings/index.jsx";
 
 // Routes công khai
 const publicRoutes = [
@@ -102,6 +105,18 @@ const privateRoutes = [
     layout: TeacherLayout,
     allowedRoles: ['teacher']
   },
+  {
+    path: "/teacher/chat",
+    component: TeacherChat,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
+  {
+    path: "/teacher/settings",
+    component: TeacherSettings,
+    layout: TeacherLayout,
+    allowedRoles: ['teacher']
+  },
   // Student routes
   {
     path: "/student/dashboard",
@@ -130,6 +145,12 @@ const privateRoutes = [
   {
     path: "/student/games",
     component: StudentGames,
+    layout: StudentLayout,
+    allowedRoles: ['student']
+  },
+  {
+    path: "/student/settings",
+    component: StudentSettings,
     layout: StudentLayout,
     allowedRoles: ['student']
   },

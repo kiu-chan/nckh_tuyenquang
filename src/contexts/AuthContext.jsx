@@ -109,6 +109,10 @@ export const AuthProvider = ({ children }) => {
     return { success: true, user: data.user };
   };
 
+  const updateProfile = (updatedUser) => {
+    setCurrentUser((prev) => ({ ...prev, ...updatedUser }));
+  };
+
   const logout = async () => {
     localStorage.removeItem('authToken');
     setCurrentUser(null);
@@ -120,6 +124,7 @@ export const AuthProvider = ({ children }) => {
     register,
     googleLogin,
     logout,
+    updateProfile,
     loading,
   };
 

@@ -125,4 +125,62 @@ router.get('/me', protect, async (req, res) => {
   });
 });
 
+// PUT /api/auth/profile - Cập nhật thông tin cá nhân
+router.put('/profile', protect, async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (name) user.name = name;
+
+    if (email && email.toLowerCase() !== user.email) {
+      const exists = await User.findOne({ email: email.toLowerCase(), _id: { $ne: user._id } });
+      if (exists) {
+        return res.status(400).json({ message: 'Email đã được sử dụng bởi tài khoản khác' });
+      }
+      user.email = email.toLowerCase();
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Cập nhật thông tin thành công',
+      user: formatUserResponse(user),
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PUT /api/auth/password - Đổi mật khẩu
+router.put('/password', protect, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    }
+
+    // Nếu user có password (không phải Google-only), yêu cầu mật khẩu hiện tại
+    if (user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Vui lòng nhập mật khẩu hiện tại' });
+      }
+      const isMatch = await user.matchPassword(currentPassword);
+      if (!isMatch) {
+        return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác' });
+      }
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
 export default router;
