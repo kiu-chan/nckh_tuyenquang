@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import protect from '../middleware/auth.js';
@@ -178,6 +179,83 @@ router.put('/password', protect, async (req, res) => {
     await user.save();
 
     res.json({ success: true, message: 'Đổi mật khẩu thành công' });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/auth/forgot-password
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Vui lòng nhập email' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    // Không tiết lộ email có tồn tại hay không (bảo mật)
+    if (!user) {
+      return res.json({
+        success: true,
+        message: 'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.',
+      });
+    }
+
+    // Tạo reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    user.resetPasswordToken = resetTokenHash;
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // hết hạn sau 15 phút
+    await user.save({ validateBeforeSave: false });
+
+    // Log để debug (production nên gửi email thay thế)
+    console.log(`[RESET PASSWORD] Link đặt lại mật khẩu cho ${email}:`);
+    console.log(`http://localhost:5173/reset-password?token=${resetToken}`);
+
+    res.json({
+      success: true,
+      message: 'Đã tạo link đặt lại mật khẩu thành công',
+      // Trả về token để test trực tiếp (production: xóa dòng này và gửi email)
+      resetToken,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/auth/reset-password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({ message: 'Thiếu thông tin bắt buộc' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await User.findOne({
+      resetPasswordToken: tokenHash,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: 'Token không hợp lệ hoặc đã hết hạn (15 phút)' });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Đặt lại mật khẩu thành công' });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }

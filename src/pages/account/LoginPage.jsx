@@ -225,48 +225,6 @@ const Login = () => {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-            <p className="text-sm text-emerald-800 font-medium mb-3 flex items-center gap-2">
-              <FiCheckCircle className="w-4 h-4" />
-              Tài khoản demo:
-            </p>
-            <div className="space-y-3">
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Admin</span>
-                  <span className="text-xs bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Quản trị</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>Email: <span className="font-mono font-semibold">admin@notebooklm.vn</span></p>
-                  <p>Password: <span className="font-mono font-semibold">admin123</span></p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Giáo viên</span>
-                  <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">Teacher</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>Email: <span className="font-mono font-semibold">giaovien@notebooklm.vn</span></p>
-                  <p>Password: <span className="font-mono font-semibold">teacher123</span></p>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-gray-700 uppercase">Học sinh</span>
-                  <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">Student</span>
-                </div>
-                <div className="text-sm text-emerald-700 space-y-1">
-                  <p>Email: <span className="font-mono font-semibold">hocsinh@notebooklm.vn</span></p>
-                  <p>Password: <span className="font-mono font-semibold">student123</span></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Divider */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">

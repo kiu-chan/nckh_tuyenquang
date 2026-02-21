@@ -2,6 +2,11 @@ import Home from "../pages/Home/index";
 import About from "../pages/About/index";
 import LoginPage from "../pages/account/LoginPage";
 import RegisterPage from "../pages/account/RegisterPage";
+import ForgotPasswordPage from "../pages/account/ForgotPasswordPage";
+import ResetPasswordPage from "../pages/account/ResetPasswordPage";
+import FeaturesPage from "../pages/Features/index";
+import GuidePage from "../pages/Guide/index";
+import ContactPage from "../pages/Contact/index";
 import AdminDashboard from "../pages/admin/AdminDashboard/index.jsx";
 import AdminUsers from "../pages/admin/Users/index.jsx";
 import AdminExams from "../pages/admin/Exams/index.jsx";
@@ -47,6 +52,31 @@ const publicRoutes = [
   {
     path: "/about",
     component: About,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/forgot-password",
+    component: ForgotPasswordPage,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/reset-password",
+    component: ResetPasswordPage,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/features",
+    component: FeaturesPage,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/guide",
+    component: GuidePage,
+    layout: DefaultLayout,
+  },
+  {
+    path: "/contact",
+    component: ContactPage,
     layout: DefaultLayout,
   },
 ];
