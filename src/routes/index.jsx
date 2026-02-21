@@ -1,9 +1,12 @@
 import Home from "../pages/Home/index";
 import About from "../pages/About/index";
-import MapPage from "../pages/Map/index";
 import LoginPage from "../pages/account/LoginPage";
 import RegisterPage from "../pages/account/RegisterPage";
 import AdminDashboard from "../pages/admin/AdminDashboard/index.jsx";
+import AdminUsers from "../pages/admin/Users/index.jsx";
+import AdminExams from "../pages/admin/Exams/index.jsx";
+import AdminReports from "../pages/admin/Reports/index.jsx";
+import AdminSettings from "../pages/admin/Settings/index.jsx";
 import TeacherDashboard from "../pages/teacher/Dashboard/index.jsx";
 import StudentDashboard from "../pages/student/Dashboard/index.jsx";
 import DefaultLayout from "../components/Layout/DefaultLayout";
@@ -32,11 +35,6 @@ const publicRoutes = [
     layout: DefaultLayout,
   },
   {
-    path: "/map",
-    component: MapPage,
-    layout: DefaultLayout,
-  },
-  {
     path: "/login",
     component: LoginPage,
     layout: DefaultLayout,
@@ -59,6 +57,30 @@ const privateRoutes = [
   {
     path: "/admin",
     component: AdminDashboard,
+    layout: AdminLayout,
+    allowedRoles: ['admin']
+  },
+  {
+    path: "/admin/users",
+    component: AdminUsers,
+    layout: AdminLayout,
+    allowedRoles: ['admin']
+  },
+  {
+    path: "/admin/exams",
+    component: AdminExams,
+    layout: AdminLayout,
+    allowedRoles: ['admin']
+  },
+  {
+    path: "/admin/reports",
+    component: AdminReports,
+    layout: AdminLayout,
+    allowedRoles: ['admin']
+  },
+  {
+    path: "/admin/settings",
+    component: AdminSettings,
     layout: AdminLayout,
     allowedRoles: ['admin']
   },

@@ -4,24 +4,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { 
   FiHome, 
   FiUsers, 
-  FiBook,
   FiSettings,
   FiLogOut,
   FiMenu,
   FiX,
   FiSearch,
   FiBell,
-  FiShield,
-  FiActivity,
-  FiDatabase,
-  FiUserCheck,
-  FiAlertCircle
+  FiShield
 } from 'react-icons/fi';
-import { 
-  IoSchoolOutline,
+import {
   IoStatsChartOutline,
-  IoDocumentTextOutline,
-  IoGameControllerOutline
+  IoDocumentTextOutline
 } from 'react-icons/io5';
 
 const AdminLayout = ({ children }) => {
@@ -30,17 +23,13 @@ const AdminLayout = ({ children }) => {
   const { logout, currentUser } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const menuItems = [
     { path: '/admin', icon: FiHome, label: 'Tổng quan', exact: true },
     { path: '/admin/users', icon: FiUsers, label: 'Người dùng' },
-    { path: '/admin/teachers', icon: IoSchoolOutline, label: 'Giáo viên' },
-    { path: '/admin/students', icon: FiBook, label: 'Học sinh' },
-    { path: '/admin/courses', icon: IoDocumentTextOutline, label: 'Khóa học' },
-    { path: '/admin/content', icon: FiDatabase, label: 'Nội dung' },
-    { path: '/admin/games', icon: IoGameControllerOutline, label: 'Trò chơi' },
+    { path: '/admin/exams', icon: IoDocumentTextOutline, label: 'Bài kiểm tra' },
     { path: '/admin/reports', icon: IoStatsChartOutline, label: 'Báo cáo' },
-    { path: '/admin/security', icon: FiShield, label: 'Bảo mật' },
     { path: '/admin/settings', icon: FiSettings, label: 'Cài đặt' }
   ];
 
@@ -57,6 +46,11 @@ const AdminLayout = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     }
+  };
+
+  const handleLogoutConfirm = () => {
+    setShowLogoutModal(false);
+    handleLogout();
   };
 
   const toggleSidebar = () => {
@@ -135,7 +129,7 @@ const AdminLayout = ({ children }) => {
               </div>
             </div>
             <button
-              onClick={handleLogout}
+              onClick={() => setShowLogoutModal(true)}
               className="flex items-center justify-center space-x-2 w-full px-4 py-3 text-indigo-100 hover:bg-indigo-500 rounded-xl transition-all duration-200"
             >
               <FiLogOut size={20} />
@@ -144,6 +138,35 @@ const AdminLayout = ({ children }) => {
           </div>
         </div>
       </aside>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-center w-14 h-14 bg-red-100 rounded-full mx-auto mb-4">
+              <FiLogOut className="w-7 h-7 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-800 text-center mb-2">Xác nhận đăng xuất</h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleLogoutConfirm}
+                className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-colors"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overlay for mobile */}
       {isSidebarOpen && (
@@ -155,95 +178,6 @@ const AdminLayout = ({ children }) => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-6 py-4">
-            {/* Left: Menu button & Search */}
-            <div className="flex items-center gap-4 flex-1">
-              <button
-                onClick={toggleSidebar}
-                className="md:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <FiMenu size={24} className="text-gray-600" />
-              </button>
-
-              {/* Search */}
-              <div className="hidden md:flex items-center flex-1 max-w-xl">
-                <div className="relative w-full">
-                  <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm kiếm người dùng, khóa học, báo cáo..."
-                    className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Right: Notifications & User */}
-            <div className="flex items-center gap-4">
-              {/* System Status */}
-              <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm font-medium text-green-700">Hệ thống hoạt động tốt</span>
-              </div>
-
-              {/* Notifications */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="relative p-3 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  <FiBell className="w-6 h-6 text-gray-600" />
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
-                </button>
-
-                {showNotifications && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-50">
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="font-semibold text-gray-800">Thông báo</h3>
-                    </div>
-                    <div className="max-h-96 overflow-y-auto">
-                      {notifications.map((notif) => (
-                        <div key={notif.id} className="p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-2 h-2 mt-2 rounded-full ${
-                              notif.type === 'warning' ? 'bg-yellow-500' :
-                              notif.type === 'info' ? 'bg-blue-500' : 'bg-green-500'
-                            }`}></div>
-                            <div className="flex-1">
-                              <p className="text-sm text-gray-800">{notif.message}</p>
-                              <p className="text-xs text-gray-500 mt-1">{notif.time}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="p-3 border-t border-gray-100">
-                      <button className="w-full text-center text-sm text-indigo-600 font-medium hover:text-indigo-700">
-                        Xem tất cả
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* User Avatar */}
-              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-                <div className="hidden md:block text-right">
-                  <p className="text-sm font-semibold text-gray-800">
-                    {currentUser?.name || 'Administrator'}
-                  </p>
-                  <p className="text-xs text-gray-500">Super Admin</p>
-                </div>
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                  A
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
-
         {/* Page Content */}
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
           {children || <Outlet />}
