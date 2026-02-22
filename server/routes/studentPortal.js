@@ -254,9 +254,6 @@ router.post('/exams/:id/submit', async (req, res) => {
 
     // Tính điểm trắc nghiệm theo thang totalPoints
     const totalQuestionPoints = exam.questions.reduce((sum, q) => sum + (q.points || 1), 0);
-    const mcPoints = exam.questions
-      .filter((q) => q.type === 'multiple-choice')
-      .reduce((sum, q) => sum + (q.points || 1), 0);
     const mcScore = totalQuestionPoints > 0
       ? Math.round((mcRawScore / totalQuestionPoints) * totalPoints * 100) / 100
       : 0;
@@ -298,7 +295,7 @@ router.post('/exams/:id/submit', async (req, res) => {
     res.json({
       success: true,
       result: {
-        score: finalScore,
+        score: mcScore,
         totalPoints,
         status: submission.status,
         results,
