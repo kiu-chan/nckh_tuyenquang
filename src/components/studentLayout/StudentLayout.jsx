@@ -57,7 +57,7 @@ const StudentLayout = ({ children }) => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <aside className={`${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -174,7 +174,11 @@ const StudentLayout = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <main className={`flex-1 flex flex-col min-h-0 bg-gray-50 ${
+          location.pathname === '/student/chat'
+            ? 'overflow-hidden'
+            : 'overflow-y-auto p-6'
+        }`}>
           {children || <Outlet />}
         </main>
       </div>

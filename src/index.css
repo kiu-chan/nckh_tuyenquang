@@ -5,7 +5,6 @@
 /* Một vài style nhỏ tuỳ chỉnh */
 html, body, #root {
   height: 100%;
-  overflow: hidden;
 }
 
 /* Notebook content - HTML tables from AI */

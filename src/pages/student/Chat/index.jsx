@@ -69,21 +69,6 @@ const StudentChat = () => {
     }
   };
 
-  // Tắt scroll của html/body/main để chat không đẩy chiều cao trang
-  useEffect(() => {
-    const html = document.documentElement;
-    const body = document.body;
-    const main = document.querySelector('main');
-    html.style.overflow = 'hidden';
-    body.style.overflow = 'hidden';
-    if (main) main.style.overflow = 'hidden';
-    return () => {
-      html.style.overflow = '';
-      body.style.overflow = '';
-      if (main) main.style.overflow = '';
-    };
-  }, []);
-
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
@@ -111,6 +96,9 @@ const StudentChat = () => {
     const userMessage = { role: 'user', text: text.trim(), timestamp: Date.now() };
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
+    if (inputRef.current) {
+      inputRef.current.style.height = '44px';
+    }
     setIsLoading(true);
 
     try {
@@ -165,7 +153,7 @@ const StudentChat = () => {
   };
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 -m-6">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between">
@@ -238,7 +226,7 @@ const StudentChat = () => {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex gap-3 max-w-[85%] min-w-0 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
                 >
                   {/* Avatar */}
                   <div
@@ -257,7 +245,7 @@ const StudentChat = () => {
 
                   {/* Message bubble */}
                   <div
-                    className={`rounded-2xl px-4 py-3 ${
+                    className={`rounded-2xl px-4 py-3 min-w-0 overflow-hidden ${
                       msg.role === 'user'
                         ? 'bg-blue-500 text-white'
                         : msg.isError
@@ -266,9 +254,9 @@ const StudentChat = () => {
                     }`}
                   >
                     {msg.role === 'user' ? (
-                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
                     ) : (
-                      <div className="text-sm leading-relaxed overflow-x-auto">
+                      <div className="text-sm leading-relaxed overflow-x-auto max-w-full">
                         <MathDisplay text={msg.text} block />
                       </div>
                     )}

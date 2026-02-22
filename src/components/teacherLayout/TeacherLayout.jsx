@@ -69,7 +69,7 @@ const TeacherLayout = ({ children }) => {
   ];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* Sidebar */}
       <aside className={`${
         isSidebarOpen ? 'translate-x-0' : '-translate-x-full'

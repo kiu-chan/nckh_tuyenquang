@@ -153,7 +153,7 @@ router.get('/exams/:id', async (req, res) => {
       student: student._id,
     });
 
-    if (existingSubmission && existingSubmission.status === 'submitted') {
+    if (existingSubmission && ['submitted', 'graded'].includes(existingSubmission.status)) {
       return res.status(400).json({ message: 'Bạn đã nộp bài thi này rồi' });
     }
 
@@ -311,8 +311,21 @@ router.post('/exams/:id/submit', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
   try {
     const student = await getStudent(req.user._id);
+
+    // Tài khoản mới chưa được thêm vào lớp: trả dữ liệu rỗng thay vì lỗi
     if (!student) {
-      return res.status(404).json({ message: 'Không tìm thấy thông tin học sinh' });
+      return res.json({
+        success: true,
+        newAccount: true,
+        student: {
+          name: req.user.name || req.user.email,
+          className: [],
+          teacher: null,
+        },
+        stats: { totalExams: 0, completedExams: 0, pendingExams: 0, avgScore: null },
+        upcomingExams: [],
+        recentSubmissions: [],
+      });
     }
 
     const teacher = await User.findById(student.teacher).select('name');
@@ -411,6 +424,36 @@ router.get('/dashboard', async (req, res) => {
         submittedAt: s.submittedAt,
       })),
     });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PATCH /api/student-portal/exams/:id/save-progress - Lưu tiến trình làm bài (chưa nộp)
+router.patch('/exams/:id/save-progress', async (req, res) => {
+  try {
+    const student = await getStudent(req.user._id);
+    if (!student) {
+      return res.status(404).json({ message: 'Không tìm thấy thông tin học sinh' });
+    }
+
+    const submission = await ExamSubmission.findOne({
+      exam: req.params.id,
+      student: student._id,
+      status: { $nin: ['submitted', 'graded'] },
+    });
+
+    if (!submission) {
+      return res.status(400).json({ message: 'Không tìm thấy bài làm hoặc đã nộp' });
+    }
+
+    const { answers } = req.body;
+    if (answers && Array.isArray(answers)) {
+      submission.answers = answers;
+      await submission.save();
+    }
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }

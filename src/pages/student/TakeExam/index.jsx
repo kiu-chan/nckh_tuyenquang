@@ -150,6 +150,7 @@ const TakeExam = () => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [submissionId, setSubmissionId] = useState(null);
   const startTimeRef = useRef(Date.now());
 
   // Fetch exam
@@ -162,10 +163,16 @@ const TakeExam = () => {
         const data = await res.json();
         if (data.success) {
           setExam(data.exam);
-          setTimeLeft(data.exam.duration * 60);
-          startTimeRef.current = Date.now();
+          setSubmissionId(data.submission._id);
 
-          if (data.submission?.answers) {
+          // Tính thời gian còn lại dựa trên startedAt từ server (đúng kể cả tải lại)
+          const startedAt = new Date(data.submission.startedAt).getTime();
+          const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+          const remaining = Math.max(0, data.exam.duration * 60 - elapsed);
+          setTimeLeft(remaining);
+          startTimeRef.current = startedAt;
+
+          if (data.submission?.answers?.length > 0) {
             const savedAnswers = {};
             data.submission.answers.forEach((a) => {
               if (a.answer !== undefined) savedAnswers[a.questionIndex] = a.answer;
@@ -174,6 +181,12 @@ const TakeExam = () => {
             setAnswers(savedAnswers);
           }
         } else {
+          // Bài đã nộp hoặc hết hạn → chuyển hướng về lớp học
+          const doneMessages = ['Bạn đã nộp bài thi này rồi', 'Đã hết hạn nộp bài'];
+          if (doneMessages.includes(data.message)) {
+            navigate('/student/classroom', { replace: true });
+            return;
+          }
           setError(data.message);
         }
       } catch {
@@ -184,6 +197,28 @@ const TakeExam = () => {
     };
     fetchExam();
   }, [id]);
+
+  // Auto-save đáp án sau 3 giây kể từ lần thay đổi cuối
+  useEffect(() => {
+    if (!exam || !submissionId || result || Object.keys(answers).length === 0) return;
+    const timer = setTimeout(async () => {
+      const formattedAnswers = exam.questions.map((q, index) => ({
+        questionIndex: index,
+        answer: answers[index] !== undefined ? answers[index] : undefined,
+        essayAnswer: answers[`essay_${index}`] || undefined,
+      }));
+      try {
+        await fetch(`${API}/student-portal/exams/${id}/save-progress`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ answers: formattedAnswers }),
+        });
+      } catch {
+        // Không làm gián đoạn bài thi nếu lưu thất bại
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [answers, exam, submissionId, result, id]);
 
   // Timer countdown - auto submit khi hết giờ
   useEffect(() => {
