@@ -1,6 +1,7 @@
 import {
   FiMail,
   FiPhone,
+  FiMessageSquare,
 } from 'react-icons/fi';
 import {
   IoCheckmarkCircleOutline,
@@ -101,6 +102,12 @@ const StudentCard = ({ student, onClick }) => {
             <div className="flex items-center gap-2 text-xs text-gray-600">
               <FiPhone className="w-3 h-3" />
               <span>{student.phone}</span>
+            </div>
+          )}
+          {student.notes && (
+            <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mt-1">
+              <FiMessageSquare className="w-3 h-3 mt-0.5 flex-shrink-0" />
+              <span className="line-clamp-2">{student.notes}</span>
             </div>
           )}
         </div>

@@ -14,6 +14,9 @@ import {
   FiCheck,
   FiAlertCircle,
   FiFile,
+  FiCalendar,
+  FiEdit3,
+  FiSave,
 } from 'react-icons/fi';
 import {
   IoPersonOutline,
@@ -59,6 +62,12 @@ const TeacherStudents = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Semester settings
+  const [semesterStartDate, setSemesterStartDate] = useState('');
+  const [editingSemester, setEditingSemester] = useState(false);
+  const [semesterInput, setSemesterInput] = useState('');
+  const [semesterSaving, setSemesterSaving] = useState(false);
+
   const fetchStudents = useCallback(async () => {
     try {
       const params = new URLSearchParams();
@@ -75,6 +84,43 @@ const TeacherStudents = () => {
       console.error('Error fetching students:', err);
     }
   }, [selectedClass, selectedStatus, searchQuery]);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/settings`, { headers: getAuthHeaders() });
+      const data = await res.json();
+      if (data.success && data.semesterStartDate) {
+        const dateStr = new Date(data.semesterStartDate).toISOString().split('T')[0];
+        setSemesterStartDate(dateStr);
+        setSemesterInput(dateStr);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  }, []);
+
+  const handleSaveSemester = async () => {
+    setSemesterSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/settings`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ semesterStartDate: semesterInput || null }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const dateStr = data.semesterStartDate
+          ? new Date(data.semesterStartDate).toISOString().split('T')[0]
+          : '';
+        setSemesterStartDate(dateStr);
+        setSemesterInput(dateStr);
+        setEditingSemester(false);
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err);
+    }
+    setSemesterSaving(false);
+  };
 
   const fetchStats = useCallback(async () => {
     try {
@@ -96,11 +142,11 @@ const TeacherStudents = () => {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await Promise.all([fetchStudents(), fetchStats()]);
+      await Promise.all([fetchStudents(), fetchStats(), fetchSettings()]);
       setLoading(false);
     };
     load();
-  }, [fetchStudents, fetchStats]);
+  }, [fetchStudents, fetchStats, fetchSettings]);
 
   const refreshData = async () => {
     await Promise.all([fetchStudents(), fetchStats()]);
@@ -434,6 +480,55 @@ const TeacherStudents = () => {
         })}
       </div>
 
+      {/* Semester Start Date */}
+      <div className="bg-white rounded-xl p-4 border border-gray-100 flex items-center gap-4">
+        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
+          <FiCalendar className="w-5 h-5 text-blue-600" />
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-700">Ngày đầu học kỳ (dùng tính tỷ lệ đi học)</p>
+          {editingSemester ? (
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="date"
+                value={semesterInput}
+                onChange={(e) => setSemesterInput(e.target.value)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={handleSaveSemester}
+                disabled={semesterSaving}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                {semesterSaving ? <FiLoader className="w-3.5 h-3.5 animate-spin" /> : <FiSave className="w-3.5 h-3.5" />}
+                Lưu
+              </button>
+              <button
+                onClick={() => { setEditingSemester(false); setSemesterInput(semesterStartDate); }}
+                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg transition-colors"
+              >
+                Hủy
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-sm text-gray-500">
+                {semesterStartDate
+                  ? new Date(semesterStartDate).toLocaleDateString('vi-VN')
+                  : 'Chưa đặt'}
+              </span>
+              <button
+                onClick={() => setEditingSemester(true)}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
+              >
+                <FiEdit3 className="w-3 h-3" />
+                {semesterStartDate ? 'Sửa' : 'Đặt ngày'}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Filters & Search */}
       <div className="bg-white rounded-xl p-6 border border-gray-100">
         <div className="flex flex-col lg:flex-row gap-4">
@@ -565,6 +660,7 @@ const TeacherStudents = () => {
         onDelete={handleDeleteStudent}
         onUpdate={refreshData}
         classes={classes}
+        semesterStartDate={semesterStartDate}
       />
 
       {/* Import Modal */}

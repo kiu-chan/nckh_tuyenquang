@@ -3,13 +3,68 @@ import XLSX from 'xlsx';
 import Student from '../models/Student.js';
 import User from '../models/User.js';
 import Game from '../models/Game.js';
+import Exam from '../models/Exam.js';
+import ExamSubmission from '../models/ExamSubmission.js';
+import TeacherSettings from '../models/TeacherSettings.js';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/role.js';
+
+// Helper: tính số ngày học (thứ 2-6) từ ngày bắt đầu tới hôm nay
+const countWeekdays = (startDate, endDate) => {
+  let count = 0;
+  const current = new Date(startDate);
+  current.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+};
+
+// Helper: tính lại tỷ lệ đi học dựa trên ngày bắt đầu học kỳ và ngày nghỉ
+const recalcAttendance = (absentDates, semesterStartDate) => {
+  if (!semesterStartDate) return null;
+  const totalDays = countWeekdays(semesterStartDate, new Date());
+  if (totalDays === 0) return 100;
+  const absentCount = absentDates.filter((d) => new Date(d) >= new Date(semesterStartDate)).length;
+  return Math.max(0, Math.round(((totalDays - absentCount) / totalDays) * 100));
+};
 
 const router = express.Router();
 
 // All routes require auth + teacher role
 router.use(protect, authorize('teacher', 'admin'));
+
+// GET /api/students/settings - Lấy cài đặt học kỳ của giáo viên
+router.get('/settings', async (req, res) => {
+  try {
+    const settings = await TeacherSettings.findOne({ teacher: req.user._id });
+    res.json({
+      success: true,
+      semesterStartDate: settings?.semesterStartDate || null,
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PUT /api/students/settings - Cập nhật ngày đầu học kỳ
+router.put('/settings', async (req, res) => {
+  try {
+    const { semesterStartDate } = req.body;
+    const settings = await TeacherSettings.findOneAndUpdate(
+      { teacher: req.user._id },
+      { semesterStartDate: semesterStartDate || null },
+      { new: true, upsert: true }
+    );
+    res.json({ success: true, semesterStartDate: settings.semesterStartDate });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
 
 // GET /api/students - Lấy danh sách học sinh của giáo viên
 router.get('/', async (req, res) => {
@@ -302,6 +357,96 @@ router.get('/names', async (req, res) => {
     const students = await Student.find(filter).select('name className').sort({ name: 1 });
 
     res.json({ success: true, students });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PATCH /api/students/:id/absent - Thêm hoặc xóa ngày nghỉ
+router.patch('/:id/absent', async (req, res) => {
+  try {
+    const { date, action } = req.body; // action: 'add' | 'remove'
+    if (!date || !['add', 'remove'].includes(action)) {
+      return res.status(400).json({ message: 'Thiếu date hoặc action không hợp lệ' });
+    }
+
+    const student = await Student.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!student) {
+      return res.status(404).json({ message: 'Không tìm thấy học sinh' });
+    }
+
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+
+    if (action === 'add') {
+      const exists = student.absentDates.some(
+        (d) => new Date(d).toDateString() === targetDate.toDateString()
+      );
+      if (!exists) student.absentDates.push(targetDate);
+    } else {
+      student.absentDates = student.absentDates.filter(
+        (d) => new Date(d).toDateString() !== targetDate.toDateString()
+      );
+    }
+
+    // Tính lại tỷ lệ đi học nếu có ngày bắt đầu học kỳ
+    const settings = await TeacherSettings.findOne({ teacher: req.user._id });
+    if (settings?.semesterStartDate) {
+      const newAttendance = recalcAttendance(student.absentDates, settings.semesterStartDate);
+      if (newAttendance !== null) student.attendance = newAttendance;
+    }
+
+    await student.save();
+    res.json({ success: true, student });
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// POST /api/students/:id/recalculate - Tính lại điểm và bài tập từ ExamSubmission
+router.post('/:id/recalculate', async (req, res) => {
+  try {
+    const student = await Student.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!student) {
+      return res.status(404).json({ message: 'Không tìm thấy học sinh' });
+    }
+
+    // Tìm tất cả bài nộp của học sinh này (cho các đề của giáo viên)
+    const submissions = await ExamSubmission.find({
+      student: student._id,
+      status: { $in: ['submitted', 'graded'] },
+    }).populate({ path: 'exam', select: 'teacher totalPoints' });
+
+    const teacherSubmissions = submissions.filter(
+      (s) => s.exam && s.exam.teacher.toString() === req.user._id.toString()
+    );
+
+    // Tính điểm trung bình từ các bài đã chấm
+    const gradedSubs = teacherSubmissions.filter(
+      (s) => s.status === 'graded' && s.totalPoints > 0
+    );
+    let avgScore = 0;
+    if (gradedSubs.length > 0) {
+      const total = gradedSubs.reduce((sum, s) => sum + (s.score / s.totalPoints) * 10, 0);
+      avgScore = Math.round((total / gradedSubs.length) * 10) / 10;
+    }
+
+    // Tổng số đề được giao cho học sinh
+    const assignedTotal = await Exam.countDocuments({
+      teacher: req.user._id,
+      status: { $ne: 'draft' },
+      $or: [
+        { assignedStudents: student._id },
+        { assignedClasses: { $in: student.className } },
+      ],
+    });
+
+    student.score = avgScore;
+    student.assignmentsCompleted = teacherSubmissions.length;
+    student.assignmentsTotal = assignedTotal;
+    await student.save();
+
+    res.json({ success: true, student });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }

@@ -71,6 +71,10 @@ const studentSchema = new mongoose.Schema(
     notes: {
       type: String,
     },
+    absentDates: {
+      type: [Date],
+      default: [],
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
