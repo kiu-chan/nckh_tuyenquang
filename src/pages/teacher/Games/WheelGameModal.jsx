@@ -12,6 +12,7 @@ const WheelGameModal = ({ wheel, onClose, onRecordPlay }) => {
   const [result, setResult] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [spinCount, setSpinCount] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
 
   const wheelRef = useRef(null);
   const currentRotationRef = useRef(0);
@@ -23,6 +24,7 @@ const WheelGameModal = ({ wheel, onClose, onRecordPlay }) => {
     if (isSpinning || items.length === 0) return;
     setIsSpinning(true);
     setShowResult(false);
+    setCurrentQuestion(null);
 
     // Pick a random winning index directly
     const winningIndex = Math.floor(Math.random() * items.length);
@@ -59,12 +61,16 @@ const WheelGameModal = ({ wheel, onClose, onRecordPlay }) => {
       setIsSpinning(false);
       setSpinCount((prev) => prev + 1);
       onRecordPlay(wheel._id);
+      const wq = wheel.wheelQuestions || [];
+      if (wq.length > 0) {
+        setCurrentQuestion(wq[Math.floor(Math.random() * wq.length)]);
+      }
     }, 4600);
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl">
+      <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-400 px-8 py-5">
           <div className="flex items-center justify-between">
@@ -83,7 +89,7 @@ const WheelGameModal = ({ wheel, onClose, onRecordPlay }) => {
           </div>
         </div>
 
-        <div className="p-8">
+        <div className="p-8 overflow-y-auto flex-1">
           {/* Wheel */}
           <div className="relative mb-8">
             <div className="w-72 h-72 sm:w-80 sm:h-80 mx-auto relative">
@@ -199,14 +205,34 @@ const WheelGameModal = ({ wheel, onClose, onRecordPlay }) => {
 
           {/* Result */}
           {showResult && (
-            <div className="mb-6 p-6 bg-gradient-to-r from-purple-50 via-pink-50 to-orange-50 border border-purple-100 rounded-2xl text-center animate-[fadeIn_0.5s_ease-out]">
-              <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <IoTrophyOutline className="w-6 h-6 text-white" />
+            <div className="mb-6 space-y-3">
+              <div className="p-6 bg-gradient-to-r from-purple-50 via-pink-50 to-orange-50 border border-purple-100 rounded-2xl text-center animate-[fadeIn_0.5s_ease-out]">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <IoTrophyOutline className="w-6 h-6 text-white" />
+                </div>
+                <p className="text-sm text-gray-500 mb-1 font-medium">Kết quả</p>
+                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  {result}
+                </p>
               </div>
-              <p className="text-sm text-gray-500 mb-1 font-medium">Kết quả</p>
-              <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                {result}
-              </p>
+
+              {currentQuestion && (
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl animate-[fadeIn_0.4s_ease-out]">
+                  <p className="text-xs font-semibold text-orange-500 uppercase tracking-wide mb-1">
+                    Câu hỏi cho {result}
+                  </p>
+                  <p className="text-base font-semibold text-gray-800 leading-snug">{currentQuestion}</p>
+                  <button
+                    onClick={() => {
+                      const wq = wheel.wheelQuestions || [];
+                      if (wq.length > 0) setCurrentQuestion(wq[Math.floor(Math.random() * wq.length)]);
+                    }}
+                    className="mt-3 flex items-center gap-1.5 text-sm text-orange-500 hover:text-orange-600 font-medium transition-colors"
+                  >
+                    <FiRefreshCw className="w-3.5 h-3.5" /> Câu hỏi khác
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

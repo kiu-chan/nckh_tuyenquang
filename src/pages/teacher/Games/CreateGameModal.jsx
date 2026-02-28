@@ -44,21 +44,32 @@ const CreateGameModal = ({ type, onClose, onCreated, editGame = null }) => {
         title: editGame.title || '',
         color: editGame.color || 'blue',
         items: editGame.items?.length > 0 ? [...editGame.items] : ['', ''],
+        wheelQuestions: editGame.wheelQuestions?.length > 0 ? [...editGame.wheelQuestions] : [],
       };
     }
     return {
       title: '',
       color: 'blue',
       items: ['', ''],
+      wheelQuestions: [],
     };
   });
 
-  // AI generation state
+  const [wheelQuestionMode, setWheelQuestionMode] = useState(
+    () => editGame && type === 'wheel' ? (editGame.wheelQuestions?.length || 0) > 0 : false
+  );
+
+  // AI generation state (quiz)
   const [aiTopic, setAiTopic] = useState('');
   const [aiCount, setAiCount] = useState(5);
   const [aiDifficulty, setAiDifficulty] = useState('medium');
   const [aiLoading, setAiLoading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+
+  // AI generation state (wheel questions)
+  const [aiWheelTopic, setAiWheelTopic] = useState('');
+  const [aiWheelCount, setAiWheelCount] = useState(10);
+  const [aiWheelLoading, setAiWheelLoading] = useState(false);
 
   const addQuestion = () => {
     setQuizForm((prev) => ({
@@ -98,6 +109,48 @@ const CreateGameModal = ({ type, onClose, onCreated, editGame = null }) => {
   const removeWheelItem = (index) => {
     if (wheelForm.items.length <= 2) return;
     setWheelForm((prev) => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+  };
+
+  const addWheelQuestion = () => {
+    setWheelForm((prev) => ({ ...prev, wheelQuestions: [...prev.wheelQuestions, ''] }));
+  };
+
+  const removeWheelQuestion = (index) => {
+    setWheelForm((prev) => ({ ...prev, wheelQuestions: prev.wheelQuestions.filter((_, i) => i !== index) }));
+  };
+
+  const updateWheelQuestion = (index, value) => {
+    setWheelForm((prev) => ({
+      ...prev,
+      wheelQuestions: prev.wheelQuestions.map((q, i) => (i === index ? value : q)),
+    }));
+  };
+
+  const generateWheelQuestionsWithAI = async () => {
+    if (!aiWheelTopic.trim()) return;
+    setAiWheelLoading(true);
+    setError('');
+    try {
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      const prompt = `Tạo ${aiWheelCount} câu hỏi ngắn dạng mở về chủ đề "${aiWheelTopic}" để giáo viên đặt câu hỏi trực tiếp cho học sinh trong lớp (không phải trắc nghiệm).
+Câu hỏi nên ngắn gọn, rõ ràng, kích thích tư duy.
+Trả về mảng JSON các chuỗi câu hỏi (KHÔNG có markdown, KHÔNG có \`\`\`json):
+["Câu hỏi 1?","Câu hỏi 2?"...]
+Chỉ trả về JSON thuần túy, không thêm bất kỳ text nào khác.`;
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      const generated = JSON.parse(cleaned);
+      if (Array.isArray(generated) && generated.length > 0) {
+        const wheelQuestions = generated.map((q) => String(q)).filter((q) => q.trim());
+        setWheelForm((prev) => ({ ...prev, wheelQuestions }));
+      }
+    } catch (err) {
+      setError('Không thể tạo câu hỏi bằng AI. Vui lòng thử lại.');
+      console.error('AI generate wheel questions error:', err);
+    } finally {
+      setAiWheelLoading(false);
+    }
   };
 
   // Import students
@@ -232,7 +285,12 @@ CHÚ Ý: Chỉ trả về JSON thuần túy, không thêm bất kỳ text nào k
     try {
       const body = type === 'quiz'
         ? { type: 'quiz', ...quizForm }
-        : { type: 'wheel', ...wheelForm, items: wheelForm.items.filter((i) => i.trim()) };
+        : {
+            type: 'wheel',
+            ...wheelForm,
+            items: wheelForm.items.filter((i) => i.trim()),
+            wheelQuestions: wheelQuestionMode ? wheelForm.wheelQuestions.filter((q) => q.trim()) : [],
+          };
 
       if (type === 'quiz') {
         const emptyQ = quizForm.questions.find((q) => !q.question.trim() || q.answers.some((a) => !a.trim()));
@@ -576,6 +634,115 @@ CHÚ Ý: Chỉ trả về JSON thuần túy, không thêm bất kỳ text nào k
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* Question Mode */}
+              <div className="p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <FiZap className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm font-semibold text-orange-800">Chế độ câu hỏi</span>
+                    </div>
+                    <p className="text-xs text-orange-600 mt-0.5">Hiển thị câu hỏi ngẫu nhiên sau khi quay chọn người</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWheelQuestionMode((prev) => {
+                        if (!prev && wheelForm.wheelQuestions.length === 0) {
+                          setWheelForm((f) => ({ ...f, wheelQuestions: [''] }));
+                        }
+                        return !prev;
+                      });
+                    }}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
+                      wheelQuestionMode ? 'bg-orange-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                      wheelQuestionMode ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+
+                {wheelQuestionMode && (
+                  <div className="mt-4 space-y-3">
+                    {/* AI generate wheel questions */}
+                    <div className="bg-white rounded-lg p-3 border border-orange-100">
+                      <div className="flex items-center gap-2 text-orange-700 font-medium mb-2 text-sm">
+                        <FiZap className="w-3.5 h-3.5" />
+                        Tạo câu hỏi bằng AI
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={aiWheelTopic}
+                          onChange={(e) => setAiWheelTopic(e.target.value)}
+                          placeholder="Nhập chủ đề, VD: Địa lý Việt Nam"
+                          className="flex-1 px-3 py-2 border border-orange-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-orange-400"
+                        />
+                        <input
+                          type="number"
+                          min={2}
+                          max={30}
+                          value={aiWheelCount}
+                          onChange={(e) => setAiWheelCount(Number(e.target.value))}
+                          className="w-16 px-3 py-2 border border-orange-200 rounded-lg text-sm text-center outline-none"
+                          title="Số câu hỏi"
+                        />
+                        <button
+                          type="button"
+                          onClick={generateWheelQuestionsWithAI}
+                          disabled={aiWheelLoading || !aiWheelTopic.trim()}
+                          className="flex items-center gap-1.5 px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+                        >
+                          {aiWheelLoading ? <FiLoader className="w-3.5 h-3.5 animate-spin" /> : <FiZap className="w-3.5 h-3.5" />}
+                          Tạo
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Question list */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-700">
+                          Danh sách câu hỏi ({wheelForm.wheelQuestions.filter((q) => q.trim()).length})
+                        </span>
+                        <button
+                          type="button"
+                          onClick={addWheelQuestion}
+                          className="flex items-center gap-1 text-sm text-orange-600 hover:text-orange-700 font-medium"
+                        >
+                          <FiPlus className="w-4 h-4" /> Thêm
+                        </button>
+                      </div>
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {wheelForm.wheelQuestions.map((question, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <span className="w-6 h-6 bg-orange-100 rounded flex items-center justify-center text-xs font-bold text-orange-600 flex-shrink-0">
+                              {index + 1}
+                            </span>
+                            <input
+                              type="text"
+                              value={question}
+                              onChange={(e) => updateWheelQuestion(index, e.target.value)}
+                              placeholder={`Câu hỏi ${index + 1}...`}
+                              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeWheelQuestion(index)}
+                              className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded flex-shrink-0"
+                            >
+                              <FiX className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
