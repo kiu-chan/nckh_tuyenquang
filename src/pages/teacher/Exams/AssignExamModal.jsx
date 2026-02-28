@@ -20,6 +20,7 @@ const AssignExamModal = ({ exam, onClose, onAssigned }) => {
   const [selectedClassForStudents, setSelectedClassForStudents] = useState('');
   const [searchStudent, setSearchStudent] = useState('');
   const [deadline, setDeadline] = useState('');
+  const [showAnswerAfterSubmit, setShowAnswerAfterSubmit] = useState(exam.showAnswerAfterSubmit !== false);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -123,8 +124,8 @@ const AssignExamModal = ({ exam, onClose, onAssigned }) => {
     try {
       const body =
         tab === 'class'
-          ? { assignmentType: 'class', assignedClasses: selectedClasses, deadline: deadline || null }
-          : { assignmentType: 'student', assignedStudents: selectedStudents, deadline: deadline || null };
+          ? { assignmentType: 'class', assignedClasses: selectedClasses, deadline: deadline || null, showAnswerAfterSubmit }
+          : { assignmentType: 'student', assignedStudents: selectedStudents, deadline: deadline || null, showAnswerAfterSubmit };
 
       const res = await fetch(`${API}/exams/${exam._id}/assign`, {
         method: 'POST',
@@ -313,18 +314,42 @@ const AssignExamModal = ({ exam, onClose, onAssigned }) => {
           )}
         </div>
 
-        {/* Deadline */}
-        <div className="px-6 pb-4">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
-            <FiClock className="w-4 h-4" />
-            Hạn nộp
-          </label>
-          <input
-            type="datetime-local"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
-          />
+        {/* Settings */}
+        <div className="px-6 pb-2 space-y-3">
+          {/* Deadline */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+              <FiClock className="w-4 h-4" />
+              Hạn nộp
+            </label>
+            <input
+              type="datetime-local"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none"
+            />
+          </div>
+
+          {/* Show answer toggle */}
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Hiển thị đáp án sau khi nộp bài</p>
+              <p className="text-xs text-gray-500 mt-0.5">Học sinh xem được đáp án đúng sau khi hoàn thành</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowAnswerAfterSubmit((v) => !v)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                showAnswerAfterSubmit ? 'bg-emerald-500' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  showAnswerAfterSubmit ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Footer */}

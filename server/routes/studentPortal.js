@@ -186,6 +186,7 @@ router.get('/exams/:id', async (req, res) => {
         type: exam.type,
         duration: exam.duration,
         totalPoints: exam.totalPoints,
+        showAnswerAfterSubmit: exam.showAnswerAfterSubmit !== false,
         questions,
       },
       submission: {
@@ -276,6 +277,7 @@ router.post('/exams/:id/submit', async (req, res) => {
     await Exam.findByIdAndUpdate(exam._id, { $inc: { submitted: 1 } });
 
     // Trả về kết quả
+    const showAnswer = exam.showAnswerAfterSubmit !== false;
     const results = exam.questions.map((q, index) => {
       const studentAnswer = (answers || []).find((a) => a.questionIndex === index);
       return {
@@ -283,11 +285,12 @@ router.post('/exams/:id/submit', async (req, res) => {
         question: q.question,
         type: q.type,
         answers: q.answers,
-        correct: q.type === 'multiple-choice' ? q.correct : null,
+        correct: showAnswer && q.type === 'multiple-choice' ? q.correct : null,
         studentAnswer: studentAnswer?.answer,
         studentEssay: studentAnswer?.essayAnswer,
-        isCorrect:
-          q.type === 'multiple-choice' ? studentAnswer?.answer === q.correct : null,
+        isCorrect: showAnswer && q.type === 'multiple-choice'
+          ? studentAnswer?.answer === q.correct
+          : null,
         points: q.points || 1,
       };
     });
@@ -298,6 +301,7 @@ router.post('/exams/:id/submit', async (req, res) => {
         score: mcScore,
         totalPoints,
         status: submission.status,
+        showAnswerAfterSubmit: showAnswer,
         results,
         timeSpent: submission.timeSpent,
       },

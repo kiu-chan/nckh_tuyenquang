@@ -148,7 +148,7 @@ router.put('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
 
-    const { title, subject, subjectId, type, difficulty, duration, questions, topics } = req.body;
+    const { title, subject, subjectId, type, difficulty, duration, questions, topics, showAnswerAfterSubmit } = req.body;
     if (title !== undefined) exam.title = title;
     if (subject !== undefined) exam.subject = subject;
     if (subjectId !== undefined) exam.subjectId = subjectId;
@@ -156,6 +156,7 @@ router.put('/:id', async (req, res) => {
     if (difficulty !== undefined) exam.difficulty = difficulty;
     if (duration !== undefined) exam.duration = duration;
     if (topics !== undefined) exam.topics = topics;
+    if (showAnswerAfterSubmit !== undefined) exam.showAnswerAfterSubmit = showAnswerAfterSubmit;
     if (questions !== undefined) {
       exam.questions = questions
         .filter((q) => q.question && String(q.question).trim())
@@ -210,7 +211,11 @@ router.post('/:id/assign', async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đề thi' });
     }
 
-    const { assignmentType, assignedClasses, assignedStudents, deadline } = req.body;
+    const { assignmentType, assignedClasses, assignedStudents, deadline, showAnswerAfterSubmit } = req.body;
+
+    if (showAnswerAfterSubmit !== undefined) {
+      exam.showAnswerAfterSubmit = showAnswerAfterSubmit;
+    }
 
     if (!['class', 'student'].includes(assignmentType)) {
       return res.status(400).json({ message: 'Loại giao đề không hợp lệ' });
@@ -442,6 +447,26 @@ router.patch('/:id/submissions/:submissionId/grade', async (req, res) => {
       status: submission.status,
       gradedEssayQuestions: submission.gradedEssayQuestions,
     }});
+  } catch (error) {
+    res.status(500).json({ message: 'Lỗi server', error: error.message });
+  }
+});
+
+// PATCH /api/exams/:id/settings - Cập nhật cài đặt đề thi (không cần chỉnh sửa toàn bộ)
+router.patch('/:id/settings', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ _id: req.params.id, teacher: req.user._id });
+    if (!exam) {
+      return res.status(404).json({ message: 'Không tìm thấy đề thi' });
+    }
+
+    const { showAnswerAfterSubmit } = req.body;
+    if (showAnswerAfterSubmit !== undefined) {
+      exam.showAnswerAfterSubmit = showAnswerAfterSubmit;
+    }
+
+    await exam.save();
+    res.json({ success: true, exam });
   } catch (error) {
     res.status(500).json({ message: 'Lỗi server', error: error.message });
   }

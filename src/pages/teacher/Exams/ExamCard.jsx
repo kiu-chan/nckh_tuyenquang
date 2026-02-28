@@ -11,6 +11,7 @@ import {
   FiMoreVertical,
   FiCalendar,
   FiFileText,
+  FiEyeOff,
 } from 'react-icons/fi';
 import {
   IoDocumentTextOutline,
@@ -51,7 +52,7 @@ const getDifficultyBadge = (difficulty) => {
   }
 };
 
-const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewDetail, onDownload, onAssign, onGrade }) => {
+const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewDetail, onDownload, onAssign, onGrade, onToggleAnswer }) => {
   const statusBadge = getStatusBadge(exam.status);
   const difficultyBadge = getDifficultyBadge(exam.difficulty);
   const typeInfo = examTypes.find((t) => t.id === exam.type);
@@ -181,6 +182,33 @@ const ExamCard = ({ exam, onEdit, onDelete, onDuplicate, onStatusChange, onViewD
               </p>
             </div>
           )}
+        </div>
+
+        {/* Answer visibility toggle */}
+        <div className="flex items-center justify-between py-2 px-3 mb-3 bg-gray-50 rounded-lg border border-gray-100">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            {exam.showAnswerAfterSubmit !== false ? (
+              <FiEye className="w-4 h-4 text-emerald-500" />
+            ) : (
+              <FiEyeOff className="w-4 h-4 text-gray-400" />
+            )}
+            <span>
+              {exam.showAnswerAfterSubmit !== false ? 'Học sinh xem được đáp án' : 'Ẩn đáp án với học sinh'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onToggleAnswer(exam._id, !(exam.showAnswerAfterSubmit !== false))}
+            className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              exam.showAnswerAfterSubmit !== false ? 'bg-emerald-500' : 'bg-gray-300'
+            }`}
+          >
+            <span
+              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                exam.showAnswerAfterSubmit !== false ? 'translate-x-4' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
         {/* Progress Bar */}

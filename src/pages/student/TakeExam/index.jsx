@@ -313,6 +313,7 @@ const TakeExam = () => {
 
   // Show results after submission
   if (result) {
+    const showAnswer = result.showAnswerAfterSubmit !== false;
     return (
       <div className="space-y-6">
         {/* Result Header */}
@@ -337,6 +338,12 @@ const TakeExam = () => {
               <p className="text-xs text-gray-600">Thời gian</p>
             </div>
           </div>
+
+          {!showAnswer && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+              <p className="text-sm text-amber-700 font-medium">Giáo viên đã tắt hiển thị đáp án cho bài thi này</p>
+            </div>
+          )}
         </div>
 
         {/* Detailed Results */}
@@ -347,7 +354,7 @@ const TakeExam = () => {
               <div
                 key={index}
                 className={`p-4 rounded-xl border ${
-                  r.type === 'multiple-choice'
+                  r.type === 'multiple-choice' && showAnswer
                     ? r.isCorrect
                       ? 'border-green-200 bg-green-50'
                       : 'border-red-200 bg-red-50'
@@ -369,19 +376,24 @@ const TakeExam = () => {
                           <div
                             key={ai}
                             className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
-                              ai === r.correct
+                              showAnswer && ai === r.correct
                                 ? 'bg-green-100 text-green-800 font-medium'
-                                : ai === r.studentAnswer && ai !== r.correct
+                                : showAnswer && ai === r.studentAnswer && ai !== r.correct
                                   ? 'bg-red-100 text-red-800'
-                                  : 'text-gray-600'
+                                  : ai === r.studentAnswer
+                                    ? 'bg-blue-50 text-blue-800 font-medium'
+                                    : 'text-gray-600'
                             }`}
                           >
-                            {ai === r.correct && <FiCheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />}
-                            {ai === r.studentAnswer && ai !== r.correct && (
+                            {showAnswer && ai === r.correct && <FiCheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />}
+                            {showAnswer && ai === r.studentAnswer && ai !== r.correct && (
                               <FiXCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                             )}
                             <span>{String.fromCharCode(65 + ai)}. </span>
                             <MathText text={ans} />
+                            {!showAnswer && ai === r.studentAnswer && (
+                              <span className="ml-auto text-xs text-blue-600 font-medium">Đã chọn</span>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -395,7 +407,7 @@ const TakeExam = () => {
                     )}
                   </div>
 
-                  {r.type === 'multiple-choice' && (
+                  {r.type === 'multiple-choice' && showAnswer && (
                     <span className={`text-sm font-medium flex-shrink-0 ${r.isCorrect ? 'text-green-600' : 'text-red-600'}`}>
                       {r.isCorrect ? `+${r.points}` : '0'}/{r.points}
                     </span>

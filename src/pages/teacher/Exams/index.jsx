@@ -129,6 +129,24 @@ const TeacherExams = () => {
     exportExamToExcel(exam);
   };
 
+  const handleToggleAnswer = async (id, showAnswer) => {
+    try {
+      const res = await fetch(`${API}/exams/${id}/settings`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ showAnswerAfterSubmit: showAnswer }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setExams((prev) =>
+          prev.map((e) => (e._id === id ? { ...e, showAnswerAfterSubmit: showAnswer } : e))
+        );
+      }
+    } catch (err) {
+      console.error('Error toggling answer visibility:', err);
+    }
+  };
+
   const handleViewDetail = async (exam) => {
     try {
       const res = await fetch(`${API}/exams/${exam._id}`, { headers: getAuthHeaders() });
@@ -211,6 +229,7 @@ const TeacherExams = () => {
             onDownload={handleDownload}
             onAssign={setAssignExam}
             onGrade={setGradeExam}
+            onToggleAnswer={handleToggleAnswer}
           />
         ))}
       </div>

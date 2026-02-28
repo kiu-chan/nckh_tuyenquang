@@ -27,6 +27,7 @@ const defaultConfig = {
   difficulty: 'medium',
   duration: 90,
   totalQuestions: 30,
+  showAnswerAfterSubmit: true,
 };
 
 const emptyQuestion = (type = 'multiple-choice') => ({
@@ -149,6 +150,7 @@ const CreateExamModal = ({ onClose, onCreated }) => {
           type: examConfig.type,
           difficulty: examConfig.difficulty,
           duration: examConfig.duration,
+          showAnswerAfterSubmit: examConfig.showAnswerAfterSubmit,
           questions: cleanedQuestions,
         }),
       });
@@ -188,6 +190,7 @@ const CreateExamModal = ({ onClose, onCreated }) => {
           type: examConfig.type,
           difficulty: examConfig.difficulty,
           duration: examConfig.duration,
+          showAnswerAfterSubmit: examConfig.showAnswerAfterSubmit,
           questions,
           topics,
         }),
@@ -323,6 +326,27 @@ const CreateExamModal = ({ onClose, onCreated }) => {
                     <option value="hard">Khó</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Show answer setting */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Hiển thị đáp án sau khi nộp bài</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Học sinh có thể xem đáp án đúng sau khi hoàn thành bài thi</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleConfigChange('showAnswerAfterSubmit', !examConfig.showAnswerAfterSubmit)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    examConfig.showAnswerAfterSubmit ? 'bg-emerald-500' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      examConfig.showAnswerAfterSubmit ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               {/* Manual Questions Editor */}
@@ -514,6 +538,27 @@ const CreateExamModal = ({ onClose, onCreated }) => {
                       <option value="hard">Khó</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Show answer setting */}
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Hiển thị đáp án sau khi nộp bài</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Học sinh có thể xem đáp án đúng sau khi hoàn thành bài thi</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleConfigChange('showAnswerAfterSubmit', !examConfig.showAnswerAfterSubmit)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      examConfig.showAnswerAfterSubmit ? 'bg-purple-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        examConfig.showAnswerAfterSubmit ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
                 </div>
               </div>
 

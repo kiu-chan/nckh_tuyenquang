@@ -60,6 +60,9 @@ const examSchema = new mongoose.Schema(
       },
     ],
 
+    // Answer visibility setting
+    showAnswerAfterSubmit: { type: Boolean, default: true },
+
     // Tracking
     students: { type: Number, default: 0 },
     submitted: { type: Number, default: 0 },
